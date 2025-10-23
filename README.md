@@ -30,6 +30,20 @@ Durante o jogo, você está focado em last-hits, olhando o mapa, calculando o pr
 
 **Como funciona:** O Runinhas monitora o jogo em tempo real e dispara alertas de voz automáticos nos timings exatos que você configurar. Sem precisar ficar olhando o relógio, sem precisar calcular mentalmente.
 
+### 🛡️ 100% Seguro - Sem Risco de Ban
+
+O Runinhas usa exclusivamente o **Game State Integration (GSI)**, uma funcionalidade oficial da Valve projetada especificamente para permitir que aplicações externas recebam dados do jogo em tempo real.
+
+**Não há:**
+- ❌ Modificação de arquivos do jogo
+- ❌ Injeção de código
+- ❌ Leitura de memória
+- ❌ Interação direta com o cliente do Dota 2
+
+O GSI funciona através de um arquivo de configuração que você instala na pasta do Dota 2, e o próprio jogo envia os dados para o Runinhas via HTTP. É completamente seguro e permitido pela Valve.
+
+**Saiba mais:** [Introdução ao Game State Integration](https://auo.nu/posts/game-state-integration-intro/)
+
 ---
 
 ## ⚡ Funcionalidades
