@@ -19,17 +19,16 @@ Dota 2 (GSI) → Event Bus → Consumers → Voice Handler → ElevenLabs TTS �
 - **Backend:** Go 1.24 + Wails v2 (Event-driven architecture)
 - **Frontend:** React 18 + TypeScript + Tailwind CSS + shadcn/ui
 - **TTS:** ElevenLabs API
-- **Performance:** -40% CPU • <1% event drops • Zero memory leaks
 
 ---
 
 ## 💡 O Problema Resolvido
 
-Você está focado em last-hits, olhando o mapa, calculando o próximo movimento... **e esquece que a runa de poder spawna em 15 segundos.**
+**O Runinhas é um app desktop que te ajuda a nunca mais perder timings importantes no Dota 2.**
 
-Quando lembra, o mid inimigo já pegou.
+Durante o jogo, você está focado em last-hits, olhando o mapa, calculando o próximo movimento... e esquece que a runa de poder spawna em 15 segundos. Quando lembra, o mid inimigo já pegou.
 
-**O Runinhas soluciona isso:** alertas de voz automáticos nos timings exatos que você configurar. Sem precisar ficar olhando o relógio, sem precisar calcular mentalmente.
+**Como funciona:** O Runinhas monitora o jogo em tempo real e dispara alertas de voz automáticos nos timings exatos que você configurar. Sem precisar ficar olhando o relógio, sem precisar calcular mentalmente.
 
 ---
 
