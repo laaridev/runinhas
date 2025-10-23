@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 )
 
 // RuneConsumer monitors game time and alerts before rune spawns
@@ -61,12 +60,14 @@ func (rc *RuneConsumer) consume() {
 
 // processRuneTimings checks game time and alerts for upcoming runes
 func (rc *RuneConsumer) processRuneTimings(event events.TickEvent) {
-	jsonData := gjson.ParseBytes(event.RawJSON)
+	// Use parsed event for efficient JSON access
+	parsed := events.NewParsedTickEvent(event)
+	
 	// Use clock_time instead of game_time (game_time includes pre-game time)
-	clockTime := jsonData.Get("map.clock_time").Int()
+	clockTime := parsed.GetInt64("map.clock_time")
 
 	// Only process if game is in progress
-	gameState := jsonData.Get("map.game_state").String()
+	gameState := parsed.GetString("map.game_state")
 	if gameState != "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS" {
 		return
 	}

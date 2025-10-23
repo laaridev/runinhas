@@ -2,10 +2,7 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-
-	"github.com/joho/godotenv"
+	"sync"
 )
 
 // ============================================================================
@@ -17,6 +14,13 @@ import (
 // - Voice cache path
 // - Game configuration
 
+// Singleton instance and mutex for thread-safe access
+var (
+	instance *Config
+	once     sync.Once
+	mu       sync.RWMutex
+)
+
 // Config holds all application configuration
 type Config struct {
 	// Server configuration
@@ -26,55 +30,61 @@ type Config struct {
 	ElevenLabsAPIKey  string
 	ElevenLabsVoiceID string
 	VoiceCachePath    string
-
-	// Paths
-	ConfigPath string
 	
 	// Game configuration
 	Game *GameConfig
 }
 
-// Load loads configuration from environment variables and config.json
+// Load loads configuration from config.json only (no .env)
 func Load() (*Config, error) {
-	// Try to load .env file from root directory (optional)
-	_ = godotenv.Load(".env")
-
-	// Get system voice cache path
-	voiceCachePath, err := GetVoiceCachePath()
-	if err != nil {
-		voiceCachePath = "./voice-cache" // Fallback
-	}
-
-	// Load game configuration from system config path first
-	gameConfig, err := LoadOrCreateConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	// Extract voice config from game config if available
-	apiKey := os.Getenv("ELEVENLABS_API_KEY")
-	voiceID := os.Getenv("ELEVENLABS_VOICE_ID")
+	var loadErr error
 	
-	// Prefer config.json values over environment variables
-	if gameConfig.Voice != nil {
-		if key, ok := gameConfig.Voice["apiKey"].(string); ok && key != "" {
-			apiKey = key
+	once.Do(func() {
+		// Get system voice cache path
+		voiceCachePath, err := GetVoiceCachePath()
+		if err != nil {
+			voiceCachePath = "./voice-cache" // Fallback
 		}
-		if id, ok := gameConfig.Voice["voiceId"].(string); ok && id != "" {
-			voiceID = id
+
+		// Load game configuration from system config path
+		gameConfig, err := LoadOrCreateConfig()
+		if err != nil {
+			loadErr = err
+			return
 		}
-	}
 
-	cfg := &Config{
-		Port:              getEnvAsInt("SERVER_PORT", 3001),
-		ElevenLabsAPIKey:  apiKey,
-		ElevenLabsVoiceID: voiceID,
-		VoiceCachePath:    getEnv("VOICE_CACHE_PATH", voiceCachePath),
-		ConfigPath:        "internal/config/.env",
-		Game:              gameConfig,
-	}
+		// Extract voice config from game config only (no env vars)
+		apiKey := ""
+		voiceID := DefaultVoiceID
+		
+		if gameConfig.Voice != nil {
+			if key, ok := gameConfig.Voice["apiKey"].(string); ok {
+				apiKey = key
+			}
+			if id, ok := gameConfig.Voice["voiceId"].(string); ok && id != "" {
+				voiceID = id
+			}
+		}
 
-	return cfg, nil
+		instance = &Config{
+			Port:              3001, // Fixed port
+			ElevenLabsAPIKey:  apiKey,
+			ElevenLabsVoiceID: voiceID,
+			VoiceCachePath:    voiceCachePath,
+			Game:              gameConfig,
+		}
+	})
+	
+	if loadErr != nil {
+		return nil, loadErr
+	}
+	
+	return instance, nil
+}
+
+// GetConfig returns the singleton config instance (thread-safe)
+func GetConfig() (*Config, error) {
+	return Load()
 }
 
 // Validate checks if required configuration is present
@@ -92,20 +102,22 @@ func (c *Config) HasVoiceConfig() bool {
 	return c.ElevenLabsAPIKey != "" && c.ElevenLabsVoiceID != ""
 }
 
-// getEnv gets environment variable with default value
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+// UpdateVoiceConfig updates the voice configuration and saves to disk
+func (c *Config) UpdateVoiceConfig(apiKey, voiceID string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	
+	c.ElevenLabsAPIKey = apiKey
+	c.ElevenLabsVoiceID = voiceID
+	
+	// Update in game config
+	if c.Game.Voice == nil {
+		c.Game.Voice = make(map[string]interface{})
 	}
-	return defaultValue
-}
-
-// getEnvAsInt gets environment variable as integer with default value
-func getEnvAsInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
+	c.Game.Voice["apiKey"] = apiKey
+	c.Game.Voice["voiceId"] = voiceID
+	
+	// Save to disk
+	configPath, _ := GetConfigPath()
+	return SaveGameConfig(configPath, c.Game)
 }

@@ -65,10 +65,46 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        "spin-slow": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+        "gradient-x": {
+          "0%, 100%": {
+            "background-size": "200% 200%",
+            "background-position": "left center"
+          },
+          "50%": {
+            "background-size": "200% 200%",
+            "background-position": "right center"
+          }
+        },
+        "glow-pulse": {
+          "0%, 100%": {
+            opacity: "0.5",
+            transform: "scale(1)"
+          },
+          "50%": {
+            opacity: "0.8",
+            transform: "scale(1.05)"
+          }
+        },
+        "orbit": {
+          "0%": {
+            transform: "rotate(0deg) translateX(40px) rotate(0deg)"
+          },
+          "100%": {
+            transform: "rotate(360deg) translateX(40px) rotate(-360deg)"
+          }
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "spin-slow": "spin-slow 8s linear infinite",
+        "gradient-x": "gradient-x 15s ease infinite",
+        "glow-pulse": "glow-pulse 3s ease-in-out infinite",
+        "orbit": "orbit 8s linear infinite",
       },
     },
   },

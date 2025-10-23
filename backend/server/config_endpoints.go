@@ -2,6 +2,7 @@ package server
 
 import (
 	"dota-gsi/backend/config"
+	"dota-gsi/backend/handlers"
 	"encoding/json"
 	"net/http"
 
@@ -16,6 +17,10 @@ func (s *GSIServer) AddConfigEndpoints(router *mux.Router) {
 	router.HandleFunc("/api/config", s.handleGetConfig).Methods("GET")
 	router.HandleFunc("/api/config", s.handleSaveConfig).Methods("POST")
 	
+	// Events metadata endpoints (new - returns complete event info including min/max/step)
+	router.HandleFunc("/api/events", s.handleGetEvents).Methods("GET")
+	router.HandleFunc("/api/events/{key}", s.handleGetEvent).Methods("GET")
+	
 	// Timing endpoints
 	router.HandleFunc("/api/timing/{key}/enabled", s.handleGetTimingEnabled).Methods("GET")
 	router.HandleFunc("/api/timing/{key}/{field}", s.handleGetTimingValue).Methods("GET")
@@ -29,6 +34,61 @@ func (s *GSIServer) AddConfigEndpoints(router *mux.Router) {
 	router.HandleFunc("/api/system/status", s.handleSystemStatus).Methods("GET")
 	router.HandleFunc("/api/system/first-run", s.handleSetFirstRun).Methods("POST")
 	router.HandleFunc("/api/system/gsi-installed", s.handleSetGSIInstalled).Methods("POST")
+}
+
+// ============================================================================
+// Events Metadata Endpoints
+// ============================================================================
+
+// handleGetEvents returns all event metadata (complete info including min/max/step)
+func (s *GSIServer) handleGetEvents(w http.ResponseWriter, r *http.Request) {
+	cfg, err := config.Load()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return Events map which contains all metadata
+	events := cfg.Game.Events
+	if events == nil {
+		// Return default events if not in config
+		defaultConfig := config.DefaultGameConfig()
+		events = defaultConfig.Events
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+// handleGetEvent returns metadata for a specific event
+func (s *GSIServer) handleGetEvent(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	key := vars["key"]
+
+	cfg, err := config.Load()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Check if event exists in config
+	if cfg.Game.Events != nil {
+		if event, exists := cfg.Game.Events[key]; exists {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(event)
+			return
+		}
+	}
+
+	// Fallback to default config
+	defaultConfig := config.DefaultGameConfig()
+	if event, exists := defaultConfig.Events[key]; exists {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(event)
+		return
+	}
+
+	http.Error(w, "Event not found", http.StatusNotFound)
 }
 
 // ============================================================================
@@ -110,6 +170,40 @@ func (s *GSIServer) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 	if err := config.SaveGameConfig(configPath, cfg.Game); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	
+	// Update VoiceHandler settings in memory if voice config was updated
+	if voiceData, ok := updates["voice"].(map[string]interface{}); ok {
+		if vh, ok := s.voiceHandler.(*handlers.VoiceHandler); ok {
+			apiKey := ""
+			voiceID := "eVXYtPVYB9wDoz9NVTIy" // default
+			stability := 0.5
+			similarity := 0.75
+			style := 0.0
+			speakerBoost := true
+			
+			if val, ok := voiceData["apiKey"].(string); ok {
+				apiKey = val
+			}
+			if val, ok := voiceData["voiceId"].(string); ok {
+				voiceID = val
+			}
+			if val, ok := voiceData["stability"].(float64); ok {
+				stability = val
+			}
+			if val, ok := voiceData["similarity"].(float64); ok {
+				similarity = val
+			}
+			if val, ok := voiceData["style"].(float64); ok {
+				style = val
+			}
+			if val, ok := voiceData["speakerBoost"].(bool); ok {
+				speakerBoost = val
+			}
+			
+			vh.UpdateSettings(apiKey, voiceID, stability, similarity, style, speakerBoost)
+			s.logger.Info("✅ VoiceHandler settings updated in memory")
+		}
 	}
 	
 	s.logger.Info("Configuration saved successfully")

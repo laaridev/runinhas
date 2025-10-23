@@ -51,7 +51,7 @@ func (a *App) shutdown(ctx context.Context) {
 		close(a.serverStop)
 	}
 	if a.gsiServer != nil {
-		a.gsiServer.Shutdown()
+		a.gsiServer.Stop()
 	}
 }
 
@@ -102,13 +102,13 @@ func (a *App) StopEmbeddedServer() error {
 		return fmt.Errorf("server not running")
 	}
 
-	err := a.gsiServer.Shutdown()
+	err := a.gsiServer.Stop()
 	a.gsiServer = nil
-	
+
 	if a.ctx != nil {
 		wailsruntime.EventsEmit(a.ctx, "server:stopped")
 	}
-	
+
 	return err
 }
 
@@ -125,38 +125,38 @@ func (a *App) GetBackendURL() string {
 // ProxyToBackend proxies requests from frontend to backend
 func (a *App) ProxyToBackend(method, path, body string) (string, error) {
 	url := fmt.Sprintf("http://localhost:3001%s", path)
-	
+
 	var req *http.Request
 	var err error
-	
+
 	if body != "" {
 		req, err = http.NewRequest(method, url, strings.NewReader(body))
 	} else {
 		req, err = http.NewRequest(method, url, nil)
 	}
-	
+
 	if err != nil {
 		return "", err
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
-	
+
 	if resp.StatusCode >= 400 {
 		return "", fmt.Errorf("backend returned status %d: %s", resp.StatusCode, string(responseBody))
 	}
-	
+
 	return string(responseBody), nil
 }
 
@@ -183,12 +183,12 @@ func (a *App) IsDotaInstalled() map[string]interface{} {
 	if !installed {
 		return map[string]interface{}{
 			"installed": false,
-			"message": "Dota 2 não encontrado. Por favor, instale o Dota 2 via Steam.",
+			"message":   "Dota 2 não encontrado. Por favor, instale o Dota 2 via Steam.",
 		}
 	}
 	return map[string]interface{}{
 		"installed": true,
-		"path": path,
+		"path":      path,
 	}
 }
 

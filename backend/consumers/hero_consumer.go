@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 )
 
 // HeroConsumer processes hero-related events (deaths, health, mana, level)
@@ -20,20 +19,28 @@ type HeroConsumer struct {
 	stopChan         chan struct{}
 	handlers         []handlers.Handler
 	eventThrottle    map[string]time.Time // Throttle events to avoid spam
-	throttleDuration time.Duration
+	throttleConfig   map[string]time.Duration // Configurable throttle per event type
 }
 
 // NewHeroConsumer creates a new hero consumer with handlers
 func NewHeroConsumer(eventBus *events.EventBus, logger *logrus.Entry, handlerList []handlers.Handler) *HeroConsumer {
-	throttleSeconds := 10 // Default throttle
+	// Configurable throttle per event type for better control
+	throttleConfig := map[string]time.Duration{
+		"hero_health_low":     5 * time.Second,  // More responsive for critical events
+		"hero_health_critical": 3 * time.Second,  // Even faster for critical health
+		"hero_mana_low":       3 * time.Second,  // Quick mana warnings
+		"hero_death":          0,                // No throttle for death events
+		"hero_level_up":       0,                // No throttle for level up
+		"hero_ultimate_ready": 0,                // No throttle for ultimate
+	}
 
 	return &HeroConsumer{
-		logger:           logger,
-		eventChan:        eventBus.Subscribe(),
-		stopChan:         make(chan struct{}),
-		handlers:         handlerList,
-		eventThrottle:    make(map[string]time.Time),
-		throttleDuration: time.Duration(throttleSeconds) * time.Second,
+		logger:         logger,
+		eventChan:      eventBus.Subscribe(),
+		stopChan:       make(chan struct{}),
+		handlers:       handlerList,
+		eventThrottle:  make(map[string]time.Time),
+		throttleConfig: throttleConfig,
 	}
 }
 
@@ -63,14 +70,14 @@ func (hc *HeroConsumer) consume() {
 
 // processHeroChanges extracts hero data and detects changes
 func (hc *HeroConsumer) processHeroChanges(event events.TickEvent) {
-	// Parse JSON once for better performance
-	jsonData := gjson.ParseBytes(event.RawJSON)
+	// Use parsed event for efficient JSON access
+	parsed := events.NewParsedTickEvent(event)
 
-	// Extract hero data from parsed result
-	deaths := jsonData.Get("player.deaths").Int()
-	health := jsonData.Get("hero.health_percent").Int()
-	mana := jsonData.Get("hero.mana_percent").Int()
-	level := jsonData.Get("hero.level").Int()
+	// Extract hero data using cached parse
+	deaths := parsed.GetInt64("player.deaths")
+	health := parsed.GetInt64("hero.health_percent")
+	mana := parsed.GetInt64("hero.mana_percent")
+	level := parsed.GetInt64("hero.level")
 
 	// Check for death events (deaths increased)
 	if deaths > hc.lastDeaths && hc.lastDeaths >= 0 {
@@ -144,12 +151,28 @@ func (hc *HeroConsumer) processHeroChanges(event events.TickEvent) {
 
 // canTriggerEvent checks if enough time has passed since last event
 func (hc *HeroConsumer) canTriggerEvent(eventType string) bool {
+	// Get throttle duration for this event type
+	throttleDuration := hc.getThrottleDuration(eventType)
+	
+	// No throttle if duration is 0
+	if throttleDuration == 0 {
+		return true
+	}
+	
 	lastTime, exists := hc.eventThrottle[eventType]
-	if !exists || time.Since(lastTime) > hc.throttleDuration {
+	if !exists || time.Since(lastTime) > throttleDuration {
 		hc.eventThrottle[eventType] = time.Now()
 		return true
 	}
 	return false
+}
+
+// getThrottleDuration returns the throttle duration for an event type
+func (hc *HeroConsumer) getThrottleDuration(eventType string) time.Duration {
+	if duration, exists := hc.throttleConfig[eventType]; exists {
+		return duration
+	}
+	return 10 * time.Second // Default fallback
 }
 
 // isEventEnabled checks if an event is enabled (always true for now)

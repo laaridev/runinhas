@@ -3,6 +3,7 @@ package server
 import (
 	"dota-gsi/backend/config"
 	"dota-gsi/backend/handlers"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,6 +20,12 @@ func (s *GSIServer) AddAudioEndpoints(router *mux.Router) {
 	router.HandleFunc("/api/audio/check/{eventType}", s.handleCheckAudio).Methods("GET")
 	router.HandleFunc("/api/audio/generate/{eventType}", s.handleGenerateAudio).Methods("POST")
 	router.HandleFunc("/api/audio/preview/{eventType}", s.handlePreviewAudio).Methods("POST")
+	// NEW: Serve MP3 files directly
+	router.HandleFunc("/api/audio/file/{filename}", s.handleServeAudioFile).Methods("GET")
+	// NEW: Get audio file as base64 (for Wails proxy)
+	router.HandleFunc("/api/audio/base64/{filename}", s.handleGetAudioBase64).Methods("GET")
+	// NEW: Stream audio events to frontend
+	router.HandleFunc("/api/audio/events", s.handleAudioEvents).Methods("GET")
 }
 
 // handleCheckAudio checks if audio file exists for an event
@@ -44,13 +51,12 @@ func (s *GSIServer) handleCheckAudio(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"exists": exists})
 }
-
 // handleGenerateAudio generates audio for a specific event - ALWAYS regenerates
 func (s *GSIServer) handleGenerateAudio(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventType := vars["eventType"]
 
-	s.logger.WithField("eventType", eventType).Info("🎤 Starting audio generation")
+	s.logger.WithField("eventType", eventType).Info("🎯 handleGenerateAudio called")
 
 	// Get voice handler
 	vh, ok := s.voiceHandler.(*handlers.VoiceHandler)
@@ -67,17 +73,37 @@ func (s *GSIServer) handleGenerateAudio(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Failed to load config", http.StatusInternalServerError)
 		return
 	}
+	
+	// Debug: Log entire config
+	s.logger.WithFields(logrus.Fields{
+		"hasGame": cfg.Game != nil,
+		"hasTimings": cfg.Game != nil && cfg.Game.Timings != nil,
+		"timingsCount": len(cfg.Game.Timings),
+	}).Debug("🔍 Config loaded")
 
 	// Get warning seconds from config
-	var warningSeconds int
+	warningSeconds := 30 // Default fallback
 	if cfg.Game != nil && cfg.Game.Timings != nil {
 		if timing, ok := cfg.Game.Timings[eventType]; ok {
+			s.logger.WithFields(logrus.Fields{
+				"eventType": eventType,
+				"timing": timing,
+			}).Debug("🔍 Found timing config")
+			
 			if ws, ok := timing["warning_seconds"].(float64); ok {
 				warningSeconds = int(ws)
+				s.logger.WithField("warningSeconds", warningSeconds).Debug("✅ Got warning_seconds as float64")
 			} else if ws, ok := timing["warning_seconds"].(int); ok {
 				warningSeconds = ws
+				s.logger.WithField("warningSeconds", warningSeconds).Debug("✅ Got warning_seconds as int")
+			} else {
+				s.logger.WithField("timing", timing).Warn("⚠️ warning_seconds not found or wrong type")
 			}
+		} else {
+			s.logger.WithField("eventType", eventType).Warn("⚠️ No timing config found for event")
 		}
+	} else {
+		s.logger.Warn("⚠️ No Game or Timings config found")
 	}
 
 	// Get message from config
@@ -128,15 +154,19 @@ func (s *GSIServer) handleGenerateAudio(w http.ResponseWriter, r *http.Request) 
 
 	s.logger.WithField("audioPath", audioPath).Info("✅ Audio generated and saved successfully")
 
-	// Play the audio
-	go vh.PlayAudioFile(audioPath)
-
+	// Return success (frontend will play the audio)
+	response := map[string]string{
+		"status":   "generated",
+		"filename": filename,
+		"message":  message,
+	}
+	
+	s.logger.WithFields(logrus.Fields{
+		"response": response,
+	}).Info("📤 Sending response to frontend")
+	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":  "generated",
-		"path":    audioPath,
-		"message": message,
-	})
+	json.NewEncoder(w).Encode(response)
 }
 
 // handlePreviewAudio plays audio for an event
@@ -167,6 +197,152 @@ func (s *GSIServer) handlePreviewAudio(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "playing"})
+}
+
+// handleServeAudioFile serves MP3 files from cache directory
+func (s *GSIServer) handleServeAudioFile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	filename := vars["filename"]
+	
+	// Remove query params if present (used for cache busting)
+	if idx := strings.Index(filename, "?"); idx != -1 {
+		filename = filename[:idx]
+	}
+
+	// Security: prevent directory traversal
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+
+	// Get cache path
+	cachePath, err := config.GetVoiceCachePath()
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to get cache path")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Build full path
+	audioPath := filepath.Join(cachePath, filename)
+
+	// Check if file exists
+	if _, err := os.Stat(audioPath); err != nil {
+		s.logger.WithField("file", filename).Debug("Audio file not found")
+		http.Error(w, "Audio file not found", http.StatusNotFound)
+		return
+	}
+
+	// Add timestamp to log
+	s.logger.WithFields(logrus.Fields{
+		"file": filename,
+		"path": audioPath,
+		"size": getFileSize(audioPath),
+	}).Info("📁 Serving audio file")
+	
+	// Serve the file with NO CACHE to always get fresh audio
+	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	http.ServeFile(w, r, audioPath)
+}
+
+// handleGetAudioBase64 returns audio file as base64 JSON (for Wails proxy compatibility)
+func (s *GSIServer) handleGetAudioBase64(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	filename := vars["filename"]
+
+	// Security: prevent directory traversal
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+
+	// Get cache path
+	cachePath, err := config.GetVoiceCachePath()
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to get cache path")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Build full path
+	audioPath := filepath.Join(cachePath, filename)
+
+	// Read file
+	audioData, err := os.ReadFile(audioPath)
+	if err != nil {
+		s.logger.WithField("file", filename).WithError(err).Debug("Audio file not found")
+		http.Error(w, "Audio file not found", http.StatusNotFound)
+		return
+	}
+
+	// Encode to base64
+	base64Str := base64.StdEncoding.EncodeToString(audioData)
+
+	// Return as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"data": base64Str,
+	})
+}
+
+// handleAudioEvents streams audio events to frontend via Server-Sent Events
+func (s *GSIServer) handleAudioEvents(w http.ResponseWriter, r *http.Request) {
+	// Get voice handler
+	vh, ok := s.voiceHandler.(*handlers.VoiceHandler)
+	if !ok {
+		http.Error(w, "Voice handler not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Get event channel
+	eventChan := vh.GetAudioEventChannel()
+	
+	// Create a done channel for cleanup
+	done := r.Context().Done()
+
+	s.logger.Info("🎵 Frontend connected to audio event stream")
+
+	for {
+		select {
+		case event := <-eventChan:
+			// Send event to frontend
+			eventJSON, err := json.Marshal(event)
+			if err != nil {
+				s.logger.WithError(err).Error("Failed to marshal audio event")
+				continue
+			}
+
+			// SSE format: data: {json}\n\n
+			fmt.Fprintf(w, "data: %s\n\n", eventJSON)
+			
+			// Flush immediately
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+
+		case <-done:
+			s.logger.Info("🎵 Frontend disconnected from audio event stream")
+			return
+		}
+	}
+}
+
+// getFileSize returns the file size in bytes
+func getFileSize(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return info.Size()
 }
 
 // getSemanticFilename returns the semantic filename for an event type

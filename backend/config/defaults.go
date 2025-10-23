@@ -11,31 +11,31 @@ func DefaultGameConfig() *GameConfig {
 		Timings: map[string]map[string]interface{}{
 			"bounty_rune": {
 				"enabled":         true,
-				"warning_seconds": 30,
+				"warning_seconds": DefaultRuneWarning,
 			},
 			"power_rune": {
 				"enabled":         true,
-				"warning_seconds": 30,
+				"warning_seconds": DefaultRuneWarning,
 			},
 			"wisdom_rune": {
 				"enabled":         true,
-				"warning_seconds": 30,
+				"warning_seconds": DefaultRuneWarning,
 			},
 			"water_rune": {
 				"enabled":         true,
-				"warning_seconds": 30,
+				"warning_seconds": DefaultRuneWarning,
 			},
 			"stack_timing": {
 				"enabled":         true,
-				"warning_seconds": 20,
+				"warning_seconds": DefaultStackWarning,
 			},
 			"catapult_timing": {
 				"enabled":         true,
-				"warning_seconds": 15,
+				"warning_seconds": DefaultCatapultWarning,
 			},
 			"day_night_cycle": {
 				"enabled":         true,
-				"warning_seconds": 20,
+				"warning_seconds": DefaultDayNightWarning,
 			},
 			"day_night_transition": {
 				"enabled":         true,
@@ -68,35 +68,100 @@ func DefaultGameConfig() *GameConfig {
 			},
 		},
 		Audio: AudioConfig{
-			VoiceSpeed: 1.0,
+			VoiceSpeed: DefaultVoiceSpeed,
 		},
 		Messages: map[string]string{
-			"bounty_rune":    "Runa de Recompensa em {seconds} segundos",
-			"power_rune":     "Runa de Poder em {seconds} segundos",
-			"wisdom_rune":    "Runa de Sabedoria em {seconds} segundos",
-			"water_rune":     "Runa de Água em {seconds} segundos",
-			"stack_timing":   "Stacks em {seconds} segundos",
+			"bounty_rune":     "Runa de Recompensa em {seconds} segundos",
+			"power_rune":      "Runa de Poder em {seconds} segundos",
+			"wisdom_rune":     "Runa de Sabedoria em {seconds} segundos",
+			"water_rune":      "Runa de Água em {seconds} segundos",
+			"stack_timing":    "Stacks em {seconds} segundos",
 			"catapult_timing": "Catapulta em {seconds} segundos",
-			"day_night_cycle": "Vai {cycle_type} em {seconds} segundos",
-			"day_night_transition": "{cycle_type}",
-			"tormentor":      "Tormentor em {seconds} segundos",
-			"roshan":         "Roshan em {seconds} segundos",
-			"glyph":          "Glyph em {seconds} segundos",
-			"buyback":        "Buyback em {seconds} segundos",
-			"lotus":          "Lotus em {seconds} segundos",
-			"outpost":        "Outpost em {seconds} segundos",
+			"day_night_cycle": "Atenção: mudança de ciclo em {seconds} segundos",
 		},
 		System: &SystemConfig{
-			FirstRun:     true,
-			GSIInstalled: false,
+			FirstRun:     DefaultFirstRun,
+			GSIInstalled: DefaultGSIInstalled,
 		},
 		Voice: map[string]interface{}{
 			"apiKey":       "",
-			"voiceId":      "eVXYtPVYB9wDoz9NVTIy",
-			"stability":    0.5,
-			"similarity":   0.75,
-			"style":        0.0,
-			"speakerBoost": true,
+			"voiceId":      DefaultVoiceID,
+			"stability":    DefaultStability,
+			"similarity":   DefaultSimilarity,
+			"style":        DefaultStyle,
+			"speakerBoost": DefaultSpeakerBoost,
+		},
+		Events: map[string]TimingEvent{
+			"bounty_rune": {
+				Enabled:        true,
+				WarningSeconds: DefaultRuneWarning,
+				Min:            10,
+				Max:            90,
+				Step:           5,
+				Name:           "Runa de Recompensa",
+				Description:    "Spawns de ouro para todo o time (0:00, depois a cada 3min)",
+				Category:       "rune",
+			},
+			"power_rune": {
+				Enabled:        true,
+				WarningSeconds: DefaultRuneWarning,
+				Min:            10,
+				Max:            90,
+				Step:           5,
+				Name:           "Runa de Poder",
+				Description:    "Runas de utilidade ou dano no rio (a cada 2min)",
+				Category:       "rune",
+			},
+			"wisdom_rune": {
+				Enabled:        true,
+				WarningSeconds: DefaultRuneWarning,
+				Min:            10,
+				Max:            90,
+				Step:           5,
+				Name:           "Runa de Sabedoria",
+				Description:    "XP bônus para suporte e offlane (7:00, depois a cada 7min)",
+				Category:       "rune",
+			},
+			"water_rune": {
+				Enabled:        true,
+				WarningSeconds: DefaultRuneWarning,
+				Min:            10,
+				Max:            50,
+				Step:           5,
+				Name:           "Runa de Água",
+				Description:    "Regeneração instantânea de HP/Mana (2:00 e 4:00)",
+				Category:       "rune",
+			},
+			"stack_timing": {
+				Enabled:        true,
+				WarningSeconds: DefaultStackWarning,
+				Min:            5,
+				Max:            15,
+				Step:           1,
+				Name:           "Stack Timing",
+				Description:    "Aviso para stackar camps de neutrals (sempre aos :53)",
+				Category:       "timing",
+			},
+			"catapult_timing": {
+				Enabled:        true,
+				WarningSeconds: DefaultCatapultWarning,
+				Min:            10,
+				Max:            30,
+				Step:           5,
+				Name:           "Catapulta",
+				Description:    "Spawn de catapultas para pressão em lanes e push",
+				Category:       "timing",
+			},
+			"day_night_cycle": {
+				Enabled:        true,
+				WarningSeconds: DefaultDayNightWarning,
+				Min:            10,
+				Max:            30,
+				Step:           5,
+				Name:           "Ciclo Dia/Noite",
+				Description:    "Alertas de mudança dia/noite para timing estratégico",
+				Category:       "timing",
+			},
 		},
 	}
 }
@@ -107,28 +172,28 @@ func EnsureConfigExists() error {
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
 	}
-	
+
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		// Create default config
 		defaultConfig := DefaultGameConfig()
-		
+
 		// Set cache path to system cache directory
 		cachePath, err := GetVoiceCachePath()
 		if err != nil {
 			return fmt.Errorf("failed to get voice cache path: %w", err)
 		}
 		defaultConfig.Audio.CachePath = cachePath
-		
+
 		// Save default config
 		if err := SaveGameConfig(configPath, defaultConfig); err != nil {
 			return fmt.Errorf("failed to save default config to %s: %w", configPath, err)
 		}
-		
+
 		// Log config creation
 		fmt.Printf("Created default config at: %s\n", configPath)
 	}
-	
+
 	return nil
 }
 
@@ -138,12 +203,12 @@ func LoadOrCreateConfig() (*GameConfig, error) {
 	if err := EnsureConfigExists(); err != nil {
 		return nil, err
 	}
-	
+
 	// Load config
 	configPath, err := GetConfigPath()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return LoadGameConfig(configPath)
 }

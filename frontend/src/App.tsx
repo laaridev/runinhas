@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useLoading } from "@/hooks/useLoading";
 import { useDebouncedCallback } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/useToast";
+import { useWailsAudioPlayer } from "@/hooks/useWailsAudioPlayer";
 import { cache } from "@/services/cache";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventCard } from "@/components/shared/EventCard";
 import { ConfigTab } from "@/components/ConfigTab";
@@ -11,14 +12,14 @@ import ElevenLabsSettings from "@/components/ElevenLabsSettings";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 import { ToastContainer } from "@/components/ToastContainer";
+import { ANIMATION } from "@/constants/defaults";
+import { timingAPI, messageAPI } from "@/services/api-wails";
 import {
   Coins,
   Zap,
   Droplet,
   Brain,
   Clock,
-  Play,
-  Square,
   Download,
   Palette,
   Package,
@@ -35,14 +36,20 @@ import {
   StartEmbeddedServer,
   StopEmbeddedServer
 } from '../wailsjs/go/main/App';
-// Use api-wails.ts em vez de api.ts para evitar problemas de CORS
-import { timingAPI, messageAPI } from "@/services/api-wails";
 import logoBlue from "@/assets/logo-runinha-blue.svg";
 import logoPink from "@/assets/logo-runinha-pink.svg";
 
 function App() {
   const { withLoading } = useLoading();
   const toast = useToast();
+  const audioPlayer = useWailsAudioPlayer(); // Initialize Wails audio player
+  
+  // Log audio player state for debugging
+  useEffect(() => {
+    if (audioPlayer.isPlaying) {
+      console.log('🎵 Playing:', audioPlayer.currentFile);
+    }
+  }, [audioPlayer]);
   
   const [gsiInstalled, setGsiInstalled] = useState(false);
   const [serverRunning, setServerRunning] = useState(false);
@@ -100,7 +107,7 @@ function App() {
     {
       key: "stack_timing",
       name: "Stack Timing",
-      description: "Avisar para stackar camps (XX:53)",
+      description: "Aviso para stackar camps de neutrals (sempre aos :53)",
       icon: <Package className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 5,
       max: 15,
@@ -109,7 +116,7 @@ function App() {
     {
       key: "day_night_cycle",
       name: "Ciclo Dia/Noite",
-      description: "Mudanças de ciclo (a cada 5min)",
+      description: "Alertas de mudança dia/noite para timing estratégico",
       icon: <Sun className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 10,
       max: 30,
@@ -118,7 +125,7 @@ function App() {
     {
       key: "catapult_timing",
       name: "Catapulta",
-      description: "Spawn de catapultas (a cada 5min)",
+      description: "Spawn de catapultas para pressão em lanes e push",
       icon: <Shield className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 10,
       max: 30,
@@ -131,7 +138,7 @@ function App() {
     {
       key: "bounty_rune",
       name: "Runa de Recompensa",
-      description: "0:00, depois a cada 3min",
+      description: "Spawns de ouro para todo o time (0:00, depois a cada 3min)",
       icon: <Coins className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 10,
       max: 90,
@@ -140,7 +147,7 @@ function App() {
     {
       key: "power_rune",
       name: "Runa de Poder",
-      description: "A cada 2min (rios)",
+      description: "Runas de utilidade ou dano no rio (a cada 2min)",
       icon: <Zap className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 10,
       max: 90,
@@ -149,7 +156,7 @@ function App() {
     {
       key: "water_rune",
       name: "Runa de Água",
-      description: "2:00 e 4:00",
+      description: "Regeneração instantânea de HP/Mana (2:00 e 4:00)",
       icon: <Droplet className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 10,
       max: 50,
@@ -158,7 +165,7 @@ function App() {
     {
       key: "wisdom_rune",
       name: "Runa de Sabedoria",
-      description: "7:00, depois a cada 7min",
+      description: "XP bônus para suporte e offlane (7:00, depois a cada 7min)",
       icon: <Brain className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 10,
       max: 90,
@@ -407,78 +414,125 @@ function App() {
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${theme.background} transition-all duration-500`}>
-      {/* Navbar */}
-      <nav className={`sticky top-0 z-50 bg-gradient-to-r ${theme.navbar} backdrop-blur-xl border-b ${theme.navbarBorder} shadow-lg transition-all duration-500`}>
-        <div className="max-w-7xl mx-auto px-8 py-3">
+      {/* Clean Light Navbar with Theme Colors */}
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-lg border-b border-gray-200/60 shadow-sm transition-all duration-500">
+        <div className="max-w-7xl mx-auto px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <img src={theme.logo} alt="Runinhas" className="w-12 h-12 drop-shadow-lg" />
-                {serverRunning && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                  </span>
-                )}
-              </div>
-              <div>
-                <h1 className={`text-2xl font-black tracking-tight ${theme.titleText} transition-colors duration-500`}>
-                  runinhas
-                </h1>
-                <p className="text-xs text-gray-500 -mt-1">Dota 2 Assistant</p>
-              </div>
+            
+            {/* Left - Status Pill */}
+            <div className="flex items-center">
+              {serverRunning ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/60 transition-all duration-300 hover:bg-emerald-100/80">
+                  {/* Pulsating Indicator */}
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute w-2 h-2 bg-emerald-400 rounded-full animate-ping opacity-75"></div>
+                    <div className="relative w-2 h-2 bg-emerald-500 rounded-full"></div>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-700">Online</span>
+                  <div className="w-px h-3 bg-emerald-300"></div>
+                  <span className="text-xs font-medium text-emerald-600">Aguardando partida</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 border border-gray-200">
+                  <div className="relative w-2 h-2 bg-gray-400 rounded-full"></div>
+                  <span className="text-xs font-bold text-gray-500">Offline</span>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Theme toggle */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentTheme(currentTheme === "blue" ? "pink" : "blue")}
-                className={`${theme.buttonTheme} hover:scale-105 transition-transform`}
-              >
-                <Palette className="w-4 h-4 mr-2" />
-                {theme.name}
-              </Button>
+            {/* Center - Brand Identity */}
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4 pointer-events-none">
+              {/* Logo with premium orbital animation - CENTERED */}
+              <div className="relative w-14 h-14 group pointer-events-auto">
+                {/* Pulsating glow - centered */}
+                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${theme.iconBg} rounded-full blur-2xl animate-glow-pulse pointer-events-none`} />
+                
+                {/* Orbital particles - centered */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 pointer-events-none">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full animate-orbit">
+                    <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${
+                      currentTheme === "blue" ? "bg-blue-400" : "bg-pink-400"
+                    } shadow-lg`} />
+                  </div>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full animate-orbit" style={{ animationDelay: "-2.67s" }}>
+                    <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${
+                      currentTheme === "blue" ? "bg-purple-400" : "bg-purple-400"
+                    } shadow-lg`} />
+                  </div>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full animate-orbit" style={{ animationDelay: "-5.34s" }}>
+                    <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${
+                      currentTheme === "blue" ? "bg-pink-400" : "bg-blue-400"
+                    } shadow-lg`} />
+                  </div>
+                </div>
+                
+                {/* Logo - centered */}
+                <div className="relative w-full h-full flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                  <img 
+                    src={theme.logo} 
+                    alt="Runinhas" 
+                    className="w-full h-full drop-shadow-lg" 
+                  />
+                </div>
+              </div>
+              
+              {/* Brand name - large and prominent */}
+              <h1 className={`text-4xl font-black ${theme.titleText} tracking-tight leading-none transition-colors duration-500 pointer-events-auto`}>
+                runinhas
+              </h1>
+            </div>
 
-              {/* Server controls */}
+            {/* Right - Actions */}
+            <div className="flex items-center gap-3">
+              
+              {/* Theme Toggle with theme colors */}
+              <button
+                onClick={() => setCurrentTheme(currentTheme === "blue" ? "pink" : "blue")}
+                className={`group relative w-9 h-9 rounded-lg ${theme.iconBg} border ${theme.navbarBorder} flex items-center justify-center transition-all duration-300 hover:shadow-sm hover:scale-105`}
+                title="Trocar tema"
+              >
+                <Palette className={`w-3.5 h-3.5 ${theme.iconColor} transition-colors duration-300`} />
+              </button>
+
+              {/* Server Control Button */}
               {!gsiInstalled ? (
-                <Button
+                <button
                   onClick={handleInstallGSI}
-                  size="sm"
-                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105"
+                  className="group relative px-4 h-9 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold text-sm shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Instalar GSI
-                </Button>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Instalar GSI</span>
+                </button>
               ) : (
-                <Button
+                <button
                   onClick={serverRunning ? handleStopServer : handleStartServer}
-                  size="sm"
-                  className={`${
+                  className={`group relative px-4 h-9 rounded-lg font-semibold text-sm transition-all duration-300 hover:scale-105 flex items-center gap-2 ${
                     serverRunning
-                      ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
-                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700'
-                  } text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 min-w-[120px]`}
+                      ? 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 shadow-sm'
+                      : `bg-gradient-to-r ${theme.gradient} text-white shadow-sm hover:shadow-md`
+                  }`}
                 >
                   {serverRunning ? (
                     <>
-                      <Square className="w-4 h-4 mr-2 animate-pulse" />
-                      <span className="animate-pulse">Parar</span>
+                      <div className="relative w-2 h-2 bg-gray-500 rounded-full"></div>
+                      <span>Desconectar</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-4 h-4 mr-2" />
-                      Iniciar
+                      <div className="relative flex items-center justify-center">
+                        <div className="absolute w-2 h-2 bg-white/40 rounded-full animate-ping"></div>
+                        <div className="relative w-2 h-2 bg-white rounded-full"></div>
+                      </div>
+                      <span>Conectar</span>
                     </>
                   )}
-                </Button>
+                </button>
               )}
             </div>
+
           </div>
         </div>
       </nav>
-
       {/* Main content */}
       <main className="max-w-5xl mx-auto p-6">
         <Tabs defaultValue="runes" className="w-full">
@@ -502,7 +556,13 @@ function App() {
           </TabsList>
 
           <TabsContent value="runes" className="mt-4">
-            <div className="grid gap-4 md:grid-cols-2">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: ANIMATION.TAB_TRANSITION / 1000, ease: "easeInOut" }}
+              className="grid gap-4 md:grid-cols-2"
+            >
               {runes.map((rune) => (
                 <EventCard
                   key={rune.key}
@@ -516,11 +576,17 @@ function App() {
                   onMessageChange={(message: string) => handleMessageChange(rune.key, message)}
                 />
               ))}
-            </div>
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="timing" className="mt-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: ANIMATION.TAB_TRANSITION / 1000, ease: "easeInOut" }}
+              className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            >
               {timings.map((timing) => (
                 <EventCard
                   key={timing.key}
@@ -534,15 +600,29 @@ function App() {
                   onMessageChange={(message: string) => handleMessageChange(timing.key, message)}
                 />
               ))}
-            </div>
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="voice" className="mt-4">
-            <ElevenLabsSettings />
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: ANIMATION.TAB_TRANSITION / 1000, ease: "easeInOut" }}
+            >
+              <ElevenLabsSettings />
+            </motion.div>
           </TabsContent>
           
           <TabsContent value="config" className="mt-4">
-            <ConfigTab theme={theme} />
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: ANIMATION.TAB_TRANSITION / 1000, ease: "easeInOut" }}
+            >
+              <ConfigTab theme={theme} />
+            </motion.div>
           </TabsContent>
         </Tabs>
       </main>

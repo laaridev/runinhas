@@ -1,8 +1,11 @@
 package events
 
 import (
+	"dota-gsi/backend/metrics"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // TickEvent represents a GSI tick with raw JSON for selective parsing
@@ -15,12 +18,15 @@ type TickEvent struct {
 type EventBus struct {
 	subscribers []chan TickEvent
 	mutex       sync.RWMutex
+	logger      *logrus.Entry
 }
 
 // NewEventBus creates a new event bus
 func NewEventBus() *EventBus {
+	logger := logrus.WithField("component", "event-bus")
 	return &EventBus{
 		subscribers: make([]chan TickEvent, 0),
+		logger:      logger,
 	}
 }
 
@@ -29,8 +35,8 @@ func (eb *EventBus) Subscribe() <-chan TickEvent {
 	eb.mutex.Lock()
 	defer eb.mutex.Unlock()
 
-	// Buffered channel prevents blocking publishers
-	ch := make(chan TickEvent, 50)
+	// Increased buffer size to reduce drops
+	ch := make(chan TickEvent, 100)
 	eb.subscribers = append(eb.subscribers, ch)
 	
 	return ch
@@ -41,13 +47,16 @@ func (eb *EventBus) Publish(event TickEvent) {
 	eb.mutex.RLock()
 	defer eb.mutex.RUnlock()
 
-	// Non-blocking broadcast
+	// Broadcast with metrics tracking
 	for _, subscriber := range eb.subscribers {
 		select {
 		case subscriber <- event:
-			// Event delivered
+			// Event delivered successfully
+			metrics.Instance.IncrementProcessed()
 		default:
-			// Channel full, skip to prevent blocking
+			// Channel full, log and track
+			eb.logger.Warn("Event dropped - channel buffer full")
+			metrics.Instance.IncrementDropped()
 		}
 	}
 }

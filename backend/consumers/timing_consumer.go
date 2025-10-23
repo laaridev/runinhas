@@ -1,12 +1,22 @@
 package consumers
 
 import (
+	"dota-gsi/backend/config"
 	"dota-gsi/backend/events"
 	"dota-gsi/backend/handlers"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
+)
+
+// Game timing constants (Dota 2 game rules)
+const (
+	CatapultInterval      int64 = 300 // Catapults spawn every 5 minutes (300 seconds)
+	DayNightCycleDuration int64 = 300 // Day/Night cycle is 5 minutes (300 seconds)
+	StackStartMinute      int64 = 4   // Start stack timing alerts from minute 4
+	StackPullTime         int64 = 53  // Players must pull at X:53 to stack at X:00
+	TransitionThreshold   int64 = 2   // Seconds to detect cycle transition
+	MinuteInSeconds       int64 = 60  // Seconds in a minute
 )
 
 // TimingConsumer handles all timing-based alerts (catapults, stack, day/night)
@@ -63,11 +73,13 @@ func (tc *TimingConsumer) consume() {
 
 // processTimingEvents checks for all timing-based events
 func (tc *TimingConsumer) processTimingEvents(event events.TickEvent) {
-	jsonData := gjson.ParseBytes(event.RawJSON)
+	// Use parsed event for efficient JSON access
+	parsed := events.NewParsedTickEvent(event)
+	
 	// Use clock_time instead of game_time (game_time includes pre-game time)
-	clockTime := jsonData.Get("map.clock_time").Int()
-	gameState := jsonData.Get("map.game_state").String()
-	daytime := jsonData.Get("map.daytime").Bool()
+	clockTime := parsed.GetInt64("map.clock_time")
+	gameState := parsed.GetString("map.game_state")
+	daytime := parsed.GetBool("map.daytime")
 
 	// Only process if game is in progress
 	tc.gameInProgress = gameState == "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS"
@@ -103,17 +115,13 @@ func (tc *TimingConsumer) checkCatapultWarning(gameTime int64) {
 	}
 
 	// Get warning seconds from config (only field that exists)
-	warningSeconds := int64(15) // Default from defaults.go
+	warningSeconds := int64(config.DefaultCatapultWarning)
 	if val, ok := cfg["warning_seconds"].(float64); ok {
 		warningSeconds = int64(val)
 	}
 
-	// Catapults spawn every 5 minutes (300s) - hardcoded game rule
-	interval := int64(300)
-
-	// Catapults spawn every 5 minutes (300s)
 	// Calculate time until next catapult spawn
-	timeUntilNextCatapult := interval - (gameTime % interval)
+	timeUntilNextCatapult := CatapultInterval - (gameTime % CatapultInterval)
 
 	// If we're within warning time and haven't alerted yet
 	if timeUntilNextCatapult <= warningSeconds {
@@ -144,18 +152,15 @@ func (tc *TimingConsumer) checkDayNightWarning(gameTime int64, daytime bool) {
 	}
 
 	// Get warning seconds from config (only field that exists)
-	warningSeconds := int64(20) // Default from defaults.go
+	warningSeconds := int64(config.DefaultDayNightWarning)
 	if val, ok := cfg["warning_seconds"].(float64); ok {
 		warningSeconds = int64(val)
 	}
 
-	// Day/Night cycle is 5 minutes (300s) - hardcoded game rule
-	cycleDuration := int64(300)
-
 	// Day/Night cycle: 0-300 (day), 300-600 (night), 600-900 (day), etc.
 	// Calculate time until next transition
-	timeInCycle := gameTime % cycleDuration
-	timeUntilTransition := cycleDuration - timeInCycle
+	timeInCycle := gameTime % DayNightCycleDuration
+	timeUntilTransition := DayNightCycleDuration - timeInCycle
 
 	// Determine what's coming next based on current state
 	var nextTransitionType string
@@ -165,9 +170,9 @@ func (tc *TimingConsumer) checkDayNightWarning(gameTime int64, daytime bool) {
 		nextTransitionType = "day" // Currently night, day is coming
 	}
 
-	// Check if transition just happened (within 2 seconds)
-	if timeInCycle <= 2 {
-		alertKey := fmt.Sprintf("day_night_transition_%d", gameTime/cycleDuration)
+	// Check if transition just happened (within threshold)
+	if timeInCycle <= TransitionThreshold {
+		alertKey := fmt.Sprintf("day_night_transition_%d", gameTime/DayNightCycleDuration)
 		if tc.lastAlertTime[alertKey] == 0 {
 			// Announce the transition that just happened
 			var transitionType string
@@ -176,20 +181,20 @@ func (tc *TimingConsumer) checkDayNightWarning(gameTime int64, daytime bool) {
 			} else {
 				transitionType = "night" // Just became night
 			}
-			
+
 			eventData := map[string]interface{}{
 				"current_time": gameTime,
 				"cycle_type":   transitionType,
 				"transition":   true, // Flag to indicate this is the transition itself
 			}
-			
+
 			tc.handleEvent("day_night_transition", eventData)
 			tc.lastAlertTime[alertKey] = 1
 		}
 	}
 
 	// If we're within warning time and haven't alerted yet
-	if timeUntilTransition <= warningSeconds && timeUntilTransition > 2 {
+	if timeUntilTransition <= warningSeconds && timeUntilTransition > TransitionThreshold {
 		// Calculate the actual next transition time for tracking
 		nextTransition := gameTime + timeUntilTransition
 		alertKey := fmt.Sprintf("day_night_warning_%d", nextTransition)
@@ -219,34 +224,32 @@ func (tc *TimingConsumer) checkStackTiming(gameTime int64) {
 	}
 
 	// Get warning seconds from config (how many seconds BEFORE X:53 to warn)
-	warningSeconds := int64(20) // Default from defaults.go
+	warningSeconds := int64(config.DefaultStackWarning)
 	if val, ok := cfg["warning_seconds"].(float64); ok {
 		warningSeconds = int64(val)
 	}
 
 	// Stack timing: Players need to pull at X:53 to stack at X:00
 	// warningSeconds from config = how many seconds BEFORE X:53 to warn
-	startMinute := int64(4)  // Start warning from minute 4
-	stackPullTime := int64(53) // Players must pull at X:53
 
 	// Get current minute and second
-	currentMinute := gameTime / 60
-	currentSecond := gameTime % 60
+	currentMinute := gameTime / MinuteInSeconds
+	currentSecond := gameTime % MinuteInSeconds
 
 	// Calculate when to warn: X:53 minus warningSeconds
 	// Example: warningSeconds=7 → warn at X:46 (7 seconds before X:53)
-	warnAtSecond := stackPullTime - warningSeconds
+	warnAtSecond := StackPullTime - warningSeconds
 	if warnAtSecond < 0 {
 		warnAtSecond = 0 // Don't go negative
 	}
 
-	// Only alert from minute 4 onwards, at the calculated warning time
-	if currentMinute >= startMinute && currentSecond == warnAtSecond {
+	// Only alert from configured start minute onwards, at the calculated warning time
+	if currentMinute >= StackStartMinute && currentSecond == warnAtSecond {
 		// Check throttle (only alert once per minute)
 		lastAlert, exists := tc.lastAlertTime["stack_timing"]
-		if !exists || gameTime-lastAlert >= 60 {
+		if !exists || gameTime-lastAlert >= MinuteInSeconds {
 			// Calculate seconds until stack pull time (X:53)
-			secondsUntilStackPull := stackPullTime - currentSecond
+			secondsUntilStackPull := StackPullTime - currentSecond
 			tc.handleEvent("stack_timing", map[string]interface{}{
 				"seconds":      secondsUntilStackPull,
 				"minute":       currentMinute,

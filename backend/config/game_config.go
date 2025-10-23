@@ -14,6 +14,18 @@ import (
 // - Custom messages for events
 // - System settings (first run, GSI installed)
 
+// TimingEvent represents a complete timing event configuration
+type TimingEvent struct {
+	Enabled        bool   `json:"enabled"`
+	WarningSeconds int    `json:"warning_seconds"`
+	Min            int    `json:"min"`
+	Max            int    `json:"max"`
+	Step           int    `json:"step"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Category       string `json:"category"` // "rune" or "timing"
+}
+
 // GameConfig holds the game configuration
 type GameConfig struct {
 	Timings  map[string]map[string]interface{} `json:"timings"`
@@ -21,6 +33,7 @@ type GameConfig struct {
 	Messages map[string]string                 `json:"messages"`
 	System   *SystemConfig                     `json:"system,omitempty"`
 	Voice    map[string]interface{}            `json:"voice,omitempty"`
+	Events   map[string]TimingEvent            `json:"events,omitempty"` // Complete event metadata
 }
 
 // SystemConfig holds system configuration

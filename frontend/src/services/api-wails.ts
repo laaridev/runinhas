@@ -2,6 +2,19 @@
 // Use esta versão se a api.ts direta não funcionar por causa de CORS
 
 import { ProxyToBackend } from '../../wailsjs/go/main/App';
+import type {
+  VoiceConfig,
+  Voice,
+  SystemStatus,
+  AudioCheckResponse,
+  ConfigResponse,
+  VoicesResponse,
+  VoiceSettings,
+  EventsMetadataResponse,
+  TimingEventMetadata,
+} from '@/types/api';
+import { safeJsonParse } from '@/utils/json';
+import { DEFAULT_VOICE_CONFIG } from '@/constants/defaults';
 
 // Timing API via Wails proxy
 export const timingAPI = {
@@ -71,11 +84,13 @@ export const messageAPI = {
 
 // System API via Wails proxy
 export const systemAPI = {
-  async getStatus(): Promise<{ first_run: boolean; gsi_installed: boolean }> {
+  async getStatus(): Promise<SystemStatus> {
     try {
       const response = await ProxyToBackend('GET', '/api/system/status', '');
-      const data = JSON.parse(response);
-      return data;
+      return safeJsonParse<SystemStatus>(response, { 
+        first_run: true, 
+        gsi_installed: false 
+      });
     } catch (error) {
       console.error('Failed to get system status:', error);
       return { first_run: true, gsi_installed: false };
@@ -85,9 +100,10 @@ export const systemAPI = {
 
 // Audio API via Wails proxy
 export const audioAPI = {
-  async generate(eventType: string): Promise<void> {
+  async generate(eventType: string): Promise<string> {
     try {
-      await ProxyToBackend('POST', `/api/audio/generate/${eventType}`, '');
+      const response = await ProxyToBackend('POST', `/api/audio/generate/${eventType}`, '');
+      return response;
     } catch (error) {
       console.error(`[API-Wails] Failed to generate audio:`, error);
       throw error;
@@ -103,10 +119,31 @@ export const audioAPI = {
     }
   },
 
+  // Get audio file URL through proxy
+  getAudioUrl(filename: string): string {
+    // Return a data URL or blob URL after fetching through proxy
+    return `http://localhost:3001/api/audio/file/${filename}`;
+  },
+
+  // Fetch audio file as blob directly (faster than base64)
+  async getAudioBlob(filename: string): Promise<Blob> {
+    try {
+      // Direct fetch is faster and works in Wails
+      const response = await fetch(`http://localhost:3001/api/audio/file/${filename}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch audio: ${response.status}`);
+      }
+      return await response.blob();
+    } catch (error) {
+      console.error(`[API-Wails] Failed to get audio blob:`, error);
+      throw error;
+    }
+  },
+
   async check(eventType: string): Promise<boolean> {
     try {
       const response = await ProxyToBackend('GET', `/api/audio/check/${eventType}`, '');
-      const data = JSON.parse(response);
+      const data = safeJsonParse<AudioCheckResponse>(response, { exists: false });
       return data.exists || false;
     } catch (error) {
       console.error(`[API-Wails] Failed to check audio:`, error);
@@ -115,34 +152,44 @@ export const audioAPI = {
   }
 };
 
-// ElevenLabs Voice API via Wails proxy
-export const voiceAPI = {
-  async getConfig(): Promise<any> {
+// Events Metadata API via Wails proxy
+export const eventsAPI = {
+  async getAll(): Promise<EventsMetadataResponse> {
     try {
-      const response = await ProxyToBackend('GET', '/api/config', '');
-      const data = JSON.parse(response);
-      return data.voice || {
-        apiKey: '',
-        voiceId: 'eVXYtPVYB9wDoz9NVTIy',
-        stability: 0.5,
-        similarity: 0.75,
-        style: 0,
-        speakerBoost: true
-      };
+      const response = await ProxyToBackend('GET', '/api/events', '');
+      return safeJsonParse<EventsMetadataResponse>(response, {});
     } catch (error) {
-      console.error('[API-Wails] Failed to get voice config:', error);
-      return {
-        apiKey: '',
-        voiceId: 'eVXYtPVYB9wDoz9NVTIy',
-        stability: 0.5,
-        similarity: 0.75,
-        style: 0,
-        speakerBoost: true
-      };
+      console.error('[API-Wails] Failed to get events metadata:', error);
+      return {};
     }
   },
 
-  async saveConfig(config: any): Promise<void> {
+  async getEvent(key: string): Promise<TimingEventMetadata | null> {
+    try {
+      const response = await ProxyToBackend('GET', `/api/events/${key}`, '');
+      const parsed = JSON.parse(response);
+      return parsed as TimingEventMetadata;
+    } catch (error) {
+      console.error(`[API-Wails] Failed to get event ${key}:`, error);
+      return null;
+    }
+  }
+};
+
+// ElevenLabs Voice API via Wails proxy
+export const voiceAPI = {
+  async getConfig(): Promise<VoiceConfig> {
+    try {
+      const response = await ProxyToBackend('GET', '/api/config', '');
+      const data = safeJsonParse<ConfigResponse>(response, { voice: undefined });
+      return data.voice || { apiKey: '', ...DEFAULT_VOICE_CONFIG };
+    } catch (error) {
+      console.error('[API-Wails] Failed to get voice config:', error);
+      return { apiKey: '', ...DEFAULT_VOICE_CONFIG };
+    }
+  },
+
+  async saveConfig(config: VoiceConfig): Promise<void> {
     try {
       // Get current config first
       const response = await ProxyToBackend('GET', '/api/config', '');
@@ -159,24 +206,26 @@ export const voiceAPI = {
     }
   },
 
-  async testVoice(text: string, voiceId: string, settings: any): Promise<void> {
+  async testVoice(text: string, voiceId: string, settings: VoiceSettings): Promise<string> {
     try {
       const payload = {
         text,
         voiceId,
         settings
       };
-      await ProxyToBackend('POST', '/api/elevenlabs/test', JSON.stringify(payload));
+      const response = await ProxyToBackend('POST', '/api/elevenlabs/test', JSON.stringify(payload));
+      const data = JSON.parse(response);
+      return data.filename; // Return filename for frontend to play
     } catch (error) {
       console.error('[API-Wails] Failed to test voice:', error);
       throw error;
     }
   },
 
-  async getVoices(): Promise<any[]> {
+  async getVoices(): Promise<Voice[]> {
     try {
       const response = await ProxyToBackend('GET', '/api/elevenlabs/voices', '');
-      const data = JSON.parse(response);
+      const data = safeJsonParse<VoicesResponse>(response, { voices: [] });
       return data.voices || [];
     } catch (error) {
       console.error('[API-Wails] Failed to get voices:', error);

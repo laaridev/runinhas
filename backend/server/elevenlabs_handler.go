@@ -161,18 +161,36 @@ func (s *GSIServer) handleTestVoice(w http.ResponseWriter, r *http.Request) {
 		VoiceID  string        `json:"voiceId"`
 		Settings VoiceSettings `json:"settings"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&testRequest); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Load current config to get API key
+	cfg, err := config.Load()
+	if err != nil {
+		http.Error(w, "Failed to load config", http.StatusInternalServerError)
+		return
+	}
+
+	apiKey := cfg.ElevenLabsAPIKey
+	if apiKey == "" && cfg.Game != nil && cfg.Game.Voice != nil {
+		if key, ok := cfg.Game.Voice["apiKey"].(string); ok {
+			apiKey = key
+		}
+	}
+	
+	if apiKey == "" {
+		http.Error(w, "API Key not configured", http.StatusBadRequest)
 		return
 	}
 
 	// Use VoiceHandler if available
 	if s.voiceHandler != nil {
 		if vh, ok := s.voiceHandler.(*handlers.VoiceHandler); ok {
-			// Temporarily update settings for this test
+			// Update settings for this test (including fresh API key)
 			vh.UpdateSettings(
-				vh.GetSettings()["apiKey"].(string),
+				apiKey,
 				testRequest.VoiceID,
 				testRequest.Settings.Stability,
 				testRequest.Settings.SimilarityBoost,
@@ -200,11 +218,12 @@ func (s *GSIServer) handleTestVoice(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			
-			// Play the audio file using the voice handler
-			go vh.PlayAudioFile(tempFile) // Run in goroutine to avoid blocking
-			
+			// Return filename for frontend to play
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"status": "playing", "file": tempFile})
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":   "generated",
+				"filename": "elevenlabs_test.mp3",
+			})
 			return
 		}
 	}

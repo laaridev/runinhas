@@ -112,7 +112,7 @@ const ElevenLabsSettings: React.FC = () => {
   const testVoice = async () => {
     setTestingVoice(true);
     try {
-      await voiceAPI.testVoice(
+      const filename = await voiceAPI.testVoice(
         'Teste de voz do runinhas. Sem tilts, só timing!',
         config.voiceId,
         {
@@ -123,10 +123,40 @@ const ElevenLabsSettings: React.FC = () => {
         }
       );
       
+      console.log('🎵 Test voice filename:', filename);
+      
+      // Fetch audio as blob and create object URL
+      const { audioAPI } = await import('@/services/api-wails');
+      const blob = await audioAPI.getAudioBlob(filename);
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const audio = new Audio(blobUrl);
+      
+      audio.onloadeddata = () => {
+        console.log('✅ Test audio loaded successfully');
+      };
+      
+      audio.onended = () => {
+        console.log('✅ Test audio playback ended');
+        URL.revokeObjectURL(blobUrl); // Clean up
+        setTestingVoice(false);
+      };
+      
+      audio.onerror = (e) => {
+        console.error('❌ Failed to play test audio:', e);
+        console.error('Audio error details:', audio.error);
+        URL.revokeObjectURL(blobUrl); // Clean up
+        toast.error('Erro ao reproduzir áudio');
+        setTestingVoice(false);
+      };
+      
+      await audio.play();
+      console.log('🎵 Test audio.play() called successfully');
+      
       toast.success('Teste de voz iniciado!');
     } catch (error) {
+      console.error('❌ Test voice error:', error);
       toast.error('Erro ao testar voz. Verifique sua API Key.');
-    } finally {
       setTestingVoice(false);
     }
   };

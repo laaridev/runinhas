@@ -2,43 +2,43 @@ package handlers
 
 import (
 	"bytes"
+	"dota-gsi/backend/config"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/ebitengine/oto/v3"
-	"github.com/hajimehoshi/go-mp3"
 	"github.com/sirupsen/logrus"
 )
 
-// audioQueueItem represents an audio file to be played
-type audioQueueItem struct {
-	filePath  string
-	eventType string
-	data      interface{}
+// AudioEvent represents an audio event to be played by the frontend
+type AudioEvent struct {
+	Filename  string                 `json:"filename"`
+	EventType string                 `json:"eventType"`
+	Data      map[string]interface{} `json:"data"`
+	Timestamp int64                  `json:"timestamp"`
 }
 
-// VoiceHandler handles voice announcements using ElevenLabs + oto
+// VoiceHandler handles voice announcements using ElevenLabs
 type VoiceHandler struct {
-	apiKey       string
-	voiceID      string
-	cachePath    string
-	logger       *logrus.Entry
-	enabled      bool
-	initialized  bool
-	gameConfig   interface{}  // Game configuration for messages
-	initMutex    sync.Mutex   // Mutex to prevent double initialization
-	otoContext   *oto.Context // Audio context
-	audioQueue   chan audioQueueItem // Queue for sequential audio playback
-	queueMutex   sync.Mutex   // Mutex for queue operations
+	apiKey      string
+	voiceID     string
+	cachePath   string
+	logger      *logrus.Entry
+	enabled     bool
+	initialized bool
+	gameConfig  interface{} // Game configuration for messages
+	initMutex   sync.Mutex  // Mutex to prevent double initialization
+	// Audio event notification channel (for frontend playback)
+	audioEventChan chan AudioEvent
+	queueMutex     sync.Mutex // Mutex for queue operations
+	// Direct emitter for Wails events
+	directEmitter func(eventName string, data interface{})
 	// Voice settings (can be updated dynamically)
 	stability    float64
 	similarity   float64
@@ -55,10 +55,10 @@ func (vh *VoiceHandler) UpdateSettings(apiKey, voiceID string, stability, simila
 	vh.style = style
 	vh.speakerBoost = speakerBoost
 	vh.enabled = apiKey != ""
-	
+
 	vh.logger.WithFields(logrus.Fields{
 		"voice_id": voiceID,
-		"enabled": vh.enabled,
+		"enabled":  vh.enabled,
 	}).Info("Voice settings updated")
 }
 
@@ -87,43 +87,44 @@ func NewVoiceHandler(apiKey, voiceID, cachePath string, logger *logrus.Entry) (*
 
 	// Create cache directory
 	if err := os.MkdirAll(finalCachePath, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create voice cache directory: %w", err)
 	}
 
 	enabled := apiKey != ""
 
 	vh := &VoiceHandler{
-		apiKey:       apiKey,
-		voiceID:      voiceID,
-		cachePath:    finalCachePath,
-		logger:       logger,
-		enabled:      enabled,
-		audioQueue:   make(chan audioQueueItem, 10), // Buffer up to 10 audio items
-		// Default voice settings
-		stability:    0.5,
-		similarity:   0.75,
-		style:        0,
-		speakerBoost: true,
-	}
-
-	// Start audio queue processor
-	if enabled {
-		go vh.processAudioQueue()
+		cachePath:      cachePath,
+		apiKey:         apiKey,
+		voiceID:        voiceID,
+		logger:         logger.WithField("component", "voice"),
+		gameConfig:     nil, // Will be set later by SetGameConfig
+		enabled:        enabled,
+		audioEventChan: make(chan AudioEvent, 10), // Buffer up to 10 audio events
+			// Default voice settings (will be overridden by config)
+		stability:    config.DefaultStability,
+		similarity:   config.DefaultSimilarity,
+		style:        config.DefaultStyle,
+		speakerBoost: config.DefaultSpeakerBoost,
 	}
 
 	// Log configuration status
 	if enabled {
 		logger.Info("🎵 Voice handler initialized with ElevenLabs")
-	} else {
-		logger.Warn("🔇 Voice handler disabled - no API key provided")
+		// Start cache cleanup goroutine
+		go vh.startCacheCleanup()
 	}
 
 	return vh, nil
 }
 
-// SetGameConfig sets the game configuration for message templates
+// SetGameConfig sets the game configuration for the voice handler
 func (vh *VoiceHandler) SetGameConfig(gameConfig interface{}) {
 	vh.gameConfig = gameConfig
+}
+
+// SetDirectEmitter sets the direct emitter callback for Wails events
+func (vh *VoiceHandler) SetDirectEmitter(emitter func(eventName string, data interface{})) {
+	vh.directEmitter = emitter
+	vh.logger.Info("✅ Direct emitter configured for voice handler")
 }
 
 // Handle processes voice events
@@ -143,60 +144,29 @@ func (vh *VoiceHandler) Handle(eventType string, data interface{}) {
 	}
 }
 
-// initSpeaker initializes the audio context (thread-safe)
+// initSpeaker is deprecated - audio playback now handled by frontend
 func (vh *VoiceHandler) initSpeaker() {
 	vh.initMutex.Lock()
 	defer vh.initMutex.Unlock()
-	
-	// Check if already initialized
+
 	if vh.initialized {
 		return
 	}
-	
-	vh.logger.Info("🔊 Initializing oto audio context...")
-	
-	// Initialize oto context
-	op := &oto.NewContextOptions{
-		SampleRate:   44100,
-		ChannelCount: 2,
-		Format:       oto.FormatSignedInt16LE,
-	}
-	
-	ctx, readyChan, err := oto.NewContext(op)
-	if err != nil {
-		vh.logger.WithError(err).Error("❌ Failed to initialize oto context")
-		vh.enabled = false
-		return
-	}
-	
-	// Wait for context to be ready
-	<-readyChan
-	
-	vh.otoContext = ctx
+
 	vh.initialized = true
-	vh.logger.Info("✅ Audio context initialized successfully")
+	vh.logger.Info("✅ Voice handler initialized (frontend playback mode)")
 }
 
 // speak generates and plays voice audio with semantic caching
 func (vh *VoiceHandler) speakWithData(text string, eventType string, data interface{}) {
 	go func() {
-		// Try semantic cache path first
+		// Get semantic cache path
 		cacheFile := vh.getCacheFilePathSemantic(eventType, data)
 
-		// Check if semantic cache file exists
+		// Check if cache file exists
 		if _, err := os.Stat(cacheFile); err == nil {
-			vh.logger.WithField("cache_file", filepath.Base(cacheFile)).Debug("Using semantic cache")
-			// Add to queue instead of playing immediately
-			vh.enqueueAudio(cacheFile, eventType, data)
-			return
-		}
-
-		// Fallback to hash-based cache
-		hashCacheFile := vh.getCacheFilePath(text)
-		if _, err := os.Stat(hashCacheFile); err == nil {
-			vh.logger.WithField("cache_file", filepath.Base(hashCacheFile)).Debug("Using hash cache")
-			// Add to queue instead of playing immediately
-			vh.enqueueAudio(hashCacheFile, eventType, data)
+			vh.logger.WithField("cache_file", filepath.Base(cacheFile)).Debug("Using cached audio")
+			vh.emitAudioEvent(filepath.Base(cacheFile), eventType, data)
 			return
 		}
 
@@ -207,17 +177,14 @@ func (vh *VoiceHandler) speakWithData(text string, eventType string, data interf
 			return
 		}
 
-		// Save to semantic cache path
+		// Save to cache
 		if err := os.WriteFile(cacheFile, audioData, 0644); err != nil {
 			vh.logger.WithError(err).Error("Failed to cache audio")
-			// Try hash-based cache as fallback
-			if err := os.WriteFile(hashCacheFile, audioData, 0644); err != nil {
-				vh.logger.WithError(err).Error("Failed to cache audio (fallback)")
-			}
+			return
 		}
 
-		// Add to queue instead of playing immediately
-			vh.enqueueAudio(cacheFile, eventType, data)
+		vh.logger.WithField("cache_file", filepath.Base(cacheFile)).Debug("Audio generated and cached")
+		vh.emitAudioEvent(filepath.Base(cacheFile), eventType, data)
 	}()
 }
 
@@ -237,26 +204,29 @@ func (vh *VoiceHandler) GenerateVoice(text string) ([]byte, error) {
 	}
 
 	url := fmt.Sprintf("https://api.elevenlabs.io/v1/text-to-speech/%s", vh.voiceID)
-	
+
 	// Log the request for debugging
 	vh.logger.WithFields(logrus.Fields{
 		"voice_id": vh.voiceID,
 		"text_len": len(text),
-		"url": url,
+		"url":      url,
 	}).Debug("Generating voice with ElevenLabs")
 
 	payload := map[string]interface{}{
 		"text":     text,
 		"model_id": "eleven_multilingual_v2",
 		"voice_settings": map[string]interface{}{
-			"stability":        vh.stability,
-			"similarity_boost": vh.similarity,
-			"style":            vh.style,
+			"stability":         vh.stability,
+			"similarity_boost":  vh.similarity,
+			"style":             vh.style,
 			"use_speaker_boost": vh.speakerBoost,
 		},
 	}
 
-	jsonData, _ := json.Marshal(payload)
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -277,8 +247,8 @@ func (vh *VoiceHandler) GenerateVoice(text string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		vh.logger.WithFields(logrus.Fields{
-			"status": resp.StatusCode,
-			"body": string(body),
+			"status":   resp.StatusCode,
+			"body":     string(body),
 			"voice_id": vh.voiceID,
 		}).Error("ElevenLabs API error")
 		return nil, fmt.Errorf("ElevenLabs API error %d: %s", resp.StatusCode, string(body))
@@ -287,132 +257,39 @@ func (vh *VoiceHandler) GenerateVoice(text string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// enqueueAudio adds an audio file to the playback queue
-func (vh *VoiceHandler) enqueueAudio(filePath string, eventType string, data interface{}) {
-	item := audioQueueItem{
-		filePath:  filePath,
-		eventType: eventType,
-		data:      data,
+// emitAudioEvent emits an audio event for frontend to play
+func (vh *VoiceHandler) emitAudioEvent(filename, eventType string, data interface{}) {
+	// Convert data to map
+	dataMap := make(map[string]interface{})
+	if m, ok := data.(map[string]interface{}); ok {
+		dataMap = m
 	}
-	
-	select {
-	case vh.audioQueue <- item:
-		vh.logger.WithField("file", filepath.Base(filePath)).Debug("🎵 Audio enqueued")
-	default:
-		vh.logger.Warn("⚠️ Audio queue full, dropping audio")
+
+	event := AudioEvent{
+		Filename:  filename,
+		EventType: eventType,
+		Data:      dataMap,
+		Timestamp: time.Now().Unix(),
+	}
+
+	// Use direct emitter (Wails events)
+	if vh.directEmitter != nil {
+		vh.directEmitter("audio:play", event)
+		vh.logger.WithField("filename", filename).Debug("✅ Audio event emitted via Wails")
+	} else {
+		vh.logger.Warn("⚠️ No direct emitter configured, audio event not sent")
 	}
 }
 
-// processAudioQueue processes the audio queue sequentially
-func (vh *VoiceHandler) processAudioQueue() {
-	vh.logger.Info("🎵 Audio queue processor started")
-	
-	for item := range vh.audioQueue {
-		vh.PlayAudioFile(item.filePath)
-		// Small delay between audio files
-		time.Sleep(100 * time.Millisecond)
-	}
-	
-	vh.logger.Info("🎵 Audio queue processor stopped")
+// GetAudioEventChannel returns the audio event channel (deprecated, kept for compatibility)
+func (vh *VoiceHandler) GetAudioEventChannel() <-chan AudioEvent {
+	return vh.audioEventChan
 }
 
-// PlayAudioFile plays audio using system command (exported for API usage)
+// PlayAudioFile emits event for frontend to play audio
 func (vh *VoiceHandler) PlayAudioFile(filePath string) {
-	vh.logger.WithField("file", filepath.Base(filePath)).Debug("🎵 Playing audio file")
-	
-	// Try platform-specific players first
-	switch runtime.GOOS {
-	case "linux":
-		// Linux: Try paplay (PulseAudio/PipeWire) first
-		if vh.tryPlayWithCommand("paplay", filePath) {
-			return
-		}
-		// Fallback to mpg123
-		if vh.tryPlayWithCommand("mpg123", "-q", filePath) {
-			return
-		}
-		
-	case "windows":
-		// Windows: Use oto directly (works well with default device)
-		// No system command needed, will use oto fallback below
-		
-	case "darwin":
-		// macOS: Use afplay (native player)
-		if vh.tryPlayWithCommand("afplay", filePath) {
-			return
-		}
-	}
-	
-	// Fallback to oto if no system player available
-	vh.playAudioFileWithOto(filePath)
-}
-
-// tryPlayWithCommand tries to play audio with a system command
-func (vh *VoiceHandler) tryPlayWithCommand(command string, args ...string) bool {
-	cmd := exec.Command(command, args...)
-	if err := cmd.Run(); err != nil {
-		return false
-	}
-	vh.logger.Debug("✅ Audio playback completed")
-	return true
-}
-
-// playAudioFileWithOto plays audio using oto (fallback)
-func (vh *VoiceHandler) playAudioFileWithOto(filePath string) {
-	vh.logger.WithField("file", filepath.Base(filePath)).Debug("🎵 Playing audio file with oto")
-	
-	if vh.otoContext == nil {
-		vh.logger.Error("❌ Audio context not initialized")
-		return
-	}
-	
-	// Open MP3 file
-	file, err := os.Open(filePath)
-	if err != nil {
-		vh.logger.WithError(err).Error("❌ Failed to open audio file")
-		return
-	}
-	defer file.Close()
-	
-	// Decode MP3
-	decoder, err := mp3.NewDecoder(file)
-	if err != nil {
-		vh.logger.WithError(err).Error("❌ Failed to decode MP3")
-		return
-	}
-	
-	vh.logger.Debug("🎵 MP3 decoded, creating player...")
-	
-	// Create player
-	player := vh.otoContext.NewPlayer(decoder)
-	defer player.Close()
-	
-	// Play audio
-	player.Play()
-	
-	// Wait for playback to finish
-	for player.IsPlaying() {
-		time.Sleep(10 * time.Millisecond)
-	}
-	
-	vh.logger.Debug("✅ Audio playback completed")
-}
-
-// getCacheFilePath generates cache file path based on text hash
-func (vh *VoiceHandler) getCacheFilePath(text string) string {
-	cachePath := vh.cachePath
-	// Create filename based on text content for parameter-aware caching
-	// This ensures different parameters generate different cache files
-	// e.g., "Runa em 30 segundos" -> different file than "Runa em 20 segundos"
-	hash := fmt.Sprintf("%x", []byte(text))
-
-	// Limit hash length for filesystem compatibility
-	if len(hash) > 16 {
-		hash = hash[:16]
-	}
-
-	filename := fmt.Sprintf("voice_%s.mp3", hash)
-	return filepath.Join(cachePath, filename)
+	vh.logger.WithField("file", filepath.Base(filePath)).Debug("🎵 PlayAudioFile called")
+	vh.emitAudioEvent(filepath.Base(filePath), "manual_play", nil)
 }
 
 // getCacheFilePathSemantic generates semantic cache file path based on event type and parameters
@@ -441,15 +318,16 @@ func (vh *VoiceHandler) getCacheFilePathSemantic(eventType string, data interfac
 		filename = fmt.Sprintf("%s.mp3", eventType)
 
 	// Timing events - use generic filenames (reuse same audio)
-	case "catapult_warning":
-		filename = fmt.Sprintf("%s.mp3", eventType)
+	case "catapult_timing":
+		filename = "catapult_timing.mp3"
 
-	case "day_night_warning", "day_night_transition":
-		if cycleType, exists := dataMap["cycle_type"]; exists {
-			filename = fmt.Sprintf("%s_%s.mp3", eventType, cycleType)
-		} else {
-			filename = fmt.Sprintf("%s.mp3", eventType)
-		}
+	// Day/night: 1 arquivo apenas para cycle (warning), transition não precisa de cache
+	case "day_night_cycle":
+		filename = "day_night_cycle.mp3"
+		
+	case "day_night_transition":
+		// Transition não usa cache, fala diretamente "Amanheceu" ou "Anoiteceu"
+		filename = "day_night_transition.mp3"
 
 	case "day_night_change":
 		if isDaytime, exists := dataMap["daytime"]; exists {
@@ -489,7 +367,6 @@ func (vh *VoiceHandler) getCacheFilePathSemantic(eventType string, data interfac
 			filename = fmt.Sprintf("%s.mp3", eventType)
 		}
 
-
 	case "stack_timing":
 		// Use generic filename (reuse same audio for all minutes)
 		filename = fmt.Sprintf("%s.mp3", eventType)
@@ -506,7 +383,6 @@ func (vh *VoiceHandler) getCacheFilePathSemantic(eventType string, data interfac
 	return filepath.Join(cachePath, filename)
 }
 
-
 // getMessageForEvent returns appropriate message for the event
 func (vh *VoiceHandler) getMessageForEvent(eventType string, data interface{}) string {
 	// Convert data to map if needed
@@ -520,40 +396,20 @@ func (vh *VoiceHandler) getMessageForEvent(eventType string, data interface{}) s
 	type GameConfigInterface interface {
 		GetMessage(string) string
 	}
-	
+
 	if gc, ok := vh.gameConfig.(GameConfigInterface); ok {
-		// Handle day_night_warning and day_night_transition with cycle_type
-		if eventType == "day_night_warning" || eventType == "day_night_transition" {
+		// Handle day_night_transition - automatic "Amanheceu" or "Anoiteceu"
+		if eventType == "day_night_transition" {
 			if cycleType, exists := dataMap["cycle_type"]; exists {
-				// For transition, cycle_type is "day" or "night" (what it became)
-				// For warning, cycle_type is "day" or "night" (what's coming)
-				var message string
-				if eventType == "day_night_transition" {
-					// "Amanheceu" or "Anoiteceu"
-					if cycleType == "day" {
-						message = "Amanheceu"
-					} else {
-						message = "Anoiteceu"
-					}
+				cycleTypeStr := cycleType.(string)
+				if cycleTypeStr == "day" {
+					return "Amanheceu"
 				} else {
-					// "Vai amanhecer em X segundos" or "Vai anoitecer em X segundos"
-					if cycleType == "day" {
-						message = "Vai amanhecer em {seconds} segundos"
-					} else {
-						message = "Vai anoitecer em {seconds} segundos"
-					}
+					return "Anoiteceu"
 				}
-				
-				// Check if there's a custom message in config
-				msgKey := fmt.Sprintf("%s_%s", eventType, cycleType)
-				if customMsg := gc.GetMessage(msgKey); customMsg != "" {
-					message = customMsg
-				}
-				
-				return vh.replaceParameters(message, dataMap)
 			}
 		}
-		
+
 		// Try to get message from config
 		if msg := gc.GetMessage(eventType); msg != "" {
 			return vh.replaceParameters(msg, dataMap)
@@ -603,12 +459,12 @@ func (vh *VoiceHandler) getMessageForEvent(eventType string, data interface{}) s
 // replaceParameters replaces {param} placeholders in message with actual values
 func (vh *VoiceHandler) replaceParameters(message string, data map[string]interface{}) string {
 	result := message
-	
+
 	// Replace each parameter in the data map
 	for key, value := range data {
 		placeholder := fmt.Sprintf("{%s}", key)
 		var replacement string
-		
+
 		switch v := value.(type) {
 		case int64:
 			replacement = fmt.Sprintf("%d", v)
@@ -627,10 +483,10 @@ func (vh *VoiceHandler) replaceParameters(message string, data map[string]interf
 		default:
 			replacement = fmt.Sprintf("%v", v)
 		}
-		
+
 		result = strings.ReplaceAll(result, placeholder, replacement)
 	}
-	
+
 	return result
 }
 
@@ -655,10 +511,12 @@ func (vh *VoiceHandler) getStaticMessage(eventType string, data interface{}) str
 		return "Runa de água em breve!"
 	case "wisdom_rune_warning":
 		return "Runa de sabedoria em breve!"
-	case "catapult_warning":
+	case "catapult_timing":
 		return "Catapulta chegando!"
 	case "stack_timing":
 		return "Hora de stackar!"
+	case "day_night_cycle":
+		return "Atenção: mudança de ciclo em breve!"
 	default:
 		return ""
 	}
@@ -686,4 +544,67 @@ func (vh *VoiceHandler) getGameStateMessage(gameState string) string {
 func (vh *VoiceHandler) SetEnabled(enabled bool) {
 	vh.enabled = enabled && vh.apiKey != ""
 	vh.logger.WithField("enabled", vh.enabled).Info("Voice handler state changed")
+}
+
+// startCacheCleanup runs a goroutine to clean old cache files
+func (vh *VoiceHandler) startCacheCleanup() {
+	ticker := time.NewTicker(24 * time.Hour) // Run daily
+	defer ticker.Stop()
+
+	vh.logger.Info("🗑️ Cache cleanup goroutine started (24h interval)")
+	
+	// Run initial cleanup
+	vh.cleanupOldCache()
+	
+	for range ticker.C {
+		vh.cleanupOldCache()
+	}
+}
+
+// cleanupOldCache removes cache files older than 7 days
+func (vh *VoiceHandler) cleanupOldCache() {
+	if vh.cachePath == "" {
+		return
+	}
+
+	now := time.Now()
+	removed := 0
+	totalSize := int64(0)
+
+	// Read all files in cache directory
+	entries, err := os.ReadDir(vh.cachePath)
+	if err != nil {
+		vh.logger.WithError(err).Warn("Failed to read cache directory")
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		// Remove files older than 7 days
+		if now.Sub(info.ModTime()) > 7*24*time.Hour {
+			filePath := filepath.Join(vh.cachePath, entry.Name())
+			totalSize += info.Size()
+			
+			if err := os.Remove(filePath); err != nil {
+				vh.logger.WithError(err).Warn("Failed to remove cache file")
+			} else {
+				removed++
+			}
+		}
+	}
+
+	if removed > 0 {
+		vh.logger.WithFields(logrus.Fields{
+			"files_removed": removed,
+			"size_freed_mb": float64(totalSize) / (1024 * 1024),
+		}).Info("🧹 Cache cleanup completed")
+	}
 }

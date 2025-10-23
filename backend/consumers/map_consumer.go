@@ -5,7 +5,6 @@ import (
 	"dota-gsi/backend/handlers"
 
 	"github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 )
 
 // MapConsumer processes map-related events (game state, day/night, score)
@@ -56,11 +55,14 @@ func (mc *MapConsumer) consume() {
 
 // processMapChanges extracts map data and detects changes
 func (mc *MapConsumer) processMapChanges(event events.TickEvent) {
-	// Extract map data using gjson (selective parsing)
-	gameState := gjson.GetBytes(event.RawJSON, "map.game_state").String()
-	daytime := gjson.GetBytes(event.RawJSON, "map.daytime").Bool()
-	radiantScore := gjson.GetBytes(event.RawJSON, "map.radiant_score").Int()
-	direScore := gjson.GetBytes(event.RawJSON, "map.dire_score").Int()
+	// Use parsed event for efficient JSON access
+	parsed := events.NewParsedTickEvent(event)
+	
+	// Extract map data using cached parse
+	gameState := parsed.GetString("map.game_state")
+	daytime := parsed.GetBool("map.daytime")
+	radiantScore := parsed.GetInt64("map.radiant_score")
+	direScore := parsed.GetInt64("map.dire_score")
 
 	// Check for game state changes
 	if gameState != "" && gameState != mc.lastGameState && mc.lastGameState != "" {
