@@ -7,7 +7,6 @@
   
   [![Release](https://img.shields.io/github/v/release/laaridev/runinhas?style=for-the-badge&logo=github&color=ff69b4)](https://github.com/laaridev/runinhas/releases)
   [![CI](https://img.shields.io/github/actions/workflow/status/laaridev/runinhas/ci.yml?branch=main&style=for-the-badge&label=CI&logo=github-actions)](https://github.com/laaridev/runinhas/actions)
-  [![CodeQL](https://img.shields.io/github/actions/workflow/status/laaridev/runinhas/codeql.yml?branch=main&style=for-the-badge&label=Security&logo=github&color=green)](https://github.com/laaridev/runinhas/security/code-scanning)
   [![License](https://img.shields.io/github/license/laaridev/runinhas?style=for-the-badge&color=blue)](LICENSE)
   [![Go](https://img.shields.io/github/go-mod/go-version/laaridev/runinhas?style=for-the-badge&logo=go)](go.mod)
   
@@ -352,15 +351,14 @@ O app cria automaticamente as configurações em:
 
 ## 🔒 Segurança
 
-### Análises Automáticas
+### Qualidade de Código
 
-Este projeto implementa múltiplas camadas de segurança:
+Este projeto mantém altos padrões de qualidade:
 
-✅ **CodeQL** - Análise estática de código (Go + TypeScript)  
-✅ **Semgrep** - SAST para detectar vulnerabilidades comuns  
-✅ **Dependency Review** - Monitoramento de dependências vulneráveis  
-✅ **golangci-lint** - 20+ linters de segurança e qualidade  
-✅ **ESLint** - Análise de código TypeScript/React
+✅ **golangci-lint** - 20+ linters de segurança e qualidade (Go)  
+✅ **ESLint** - Análise de código TypeScript/React  
+✅ **TypeScript Strict** - Type safety completo  
+✅ **CI Automático** - Testes em cada commit
 
 ### Privacidade
 
@@ -384,7 +382,6 @@ Todas as mudanças passam por verificação automática:
 - ✅ **Linting** - golangci-lint (Go) + ESLint (TypeScript)
 - ✅ **Tests** - Suíte completa de testes
 - ✅ **Build** - Verificação de build em Windows e Linux
-- ✅ **Security** - CodeQL + Semgrep em cada commit
 
 ### Releases Automatizadas
 
