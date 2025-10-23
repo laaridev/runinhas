@@ -5,16 +5,15 @@
   
   ### *"sem tilts, só timing"* ⚡
   
-  [![Release](https://img.shields.io/github/v/release/laaridev/runinhas?style=for-the-badge&logo=github&color=ff69b4)](https://github.com/laaridev/runinhas/releases)
-  [![CI](https://img.shields.io/github/actions/workflow/status/laaridev/runinhas/ci.yml?branch=main&style=for-the-badge&label=CI&logo=github-actions)](https://github.com/laaridev/runinhas/actions)
-  [![License](https://img.shields.io/github/license/laaridev/runinhas?style=for-the-badge&color=blue)](LICENSE)
-  [![Go](https://img.shields.io/github/go-mod/go-version/laaridev/runinhas?style=for-the-badge&logo=go)](go.mod)
+  [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+  [![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=for-the-badge&logo=go)](go.mod)
+  [![Wails](https://img.shields.io/badge/Wails-v2-DF5320?style=for-the-badge)](https://wails.io)
   
   **Sistema profissional de Game State Integration para Dota 2**
   
   Alertas em tempo real • TTS com ElevenLabs • UI Moderna • Zero Telemetria
   
-  [📥 Download](#-download) • [✨ Features](#-features) • [🚀 Instalação](#-instalação) • [🔒 Segurança](#-segurança)
+  [🔨 Build](#-build) • [✨ Features](#-features) • [🚀 Como Usar](#-como-usar)
 </div>
 
 ---
@@ -82,33 +81,21 @@
 - **Event-Driven Architecture** - Backend Go otimizado
 - **Cached JSON Parsing** - Parse único compartilhado entre consumers
 - **Throttle Configurável** - Por tipo de evento (0s a 10s)
-- **Métricas em Tempo Real** - Monitor de performance integrado
 - **Memory-Safe** - Zero memory leaks, garbage collection automático
 - **Buffered Event Bus** - 100 eventos de buffer, <1% drop rate
 
 ---
 
-## 📥 Download
+## 🔨 Build
 
-<div align="center">
-
-### 🎯 Última Versão
-
-[![Windows](https://img.shields.io/badge/Windows_x64-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/laaridev/runinhas/releases/latest/download/runinhas-windows-amd64.exe)
-[![Linux](https://img.shields.io/badge/Linux_x64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/laaridev/runinhas/releases/latest/download/runinhas-linux-amd64)
-
-**Checksums SHA256 disponíveis para verificação de integridade**
-
-</div>
-
-### ⚠️ Aviso Windows SmartScreen
-
-Por ser um aplicativo novo, o Windows Defender SmartScreen pode mostrar um aviso. Isso é normal e acontece com todos os apps que ainda não têm milhares de downloads.
+### Pré-requisitos têm milhares de downloads.
 
 **Para executar:**
 1. Clique em "Mais informações"
 2. Clique em "Executar assim mesmo"
 
+**Se o SmartScreen bloquear o executável, execute o comando abaixo no PowerShell:**
+Get-AppXPackage *Runinhas* | Foreach {Add-AppxPackageDisableDevelopmentMode -DisableDevelopmentMode -Register $($_.InstallLocation)}
 *Todos os builds passam por análise de segurança automática (CodeQL + Semgrep)*
 
 ### ✅ Verificar Integridade (Recomendado)
@@ -155,58 +142,19 @@ go install github.com/wailsapp/wails/v2/cmd/wails@latest
 git clone git@github.com:laaridev/runinhas.git
 cd runinhas
 
-# Instalar dependências do frontend
 cd frontend
-npm install
 cd ..
 
 # Dependências do Go são instaladas automaticamente
-```
-
-#### Desenvolvimento
-
-```bash
-# Modo desenvolvimento (hot reload)
-wails dev
-
-# Apenas frontend
-cd frontend && npm run dev
-
-# Apenas backend
-cd backend && go run .
-```
-
-#### Build
-
-```bash
-# Build completo (produção)
-wails build -clean
-
-# Binários gerados em:
-# - build/bin/runinhas.exe (Windows)
-# - build/bin/runinhas (Linux)
-```
 
 #### Testes
 
 ```bash
 # Backend
-cd backend && go test -v -race ./...
+cd backend && go test -v ./...
 
 # Frontend
 cd frontend && npm test
-
-# Linting
-cd backend && golangci-lint run
-cd frontend && npm run lint
-```
-
-</details>
-
----
-
-## 📁 Estrutura do Projeto
-
 ```
 runinhas/
 ├── backend/                    # Backend Go
@@ -345,58 +293,6 @@ O app cria automaticamente as configurações em:
     "gsi_installed": true
   }
 }
-```
-
----
-
-## 🔒 Segurança
-
-### Qualidade de Código
-
-Este projeto mantém altos padrões de qualidade:
-
-✅ **golangci-lint** - 20+ linters de segurança e qualidade (Go)  
-✅ **ESLint** - Análise de código TypeScript/React  
-✅ **TypeScript Strict** - Type safety completo  
-✅ **CI Automático** - Testes em cada commit
-
-### Privacidade
-
-- 🔒 **Zero telemetria** - Nenhum dado é coletado ou enviado
-- 🔒 **Execução local** - Tudo roda na sua máquina
-- 🔒 **Código aberto** - 100% auditável
-- 🔒 **API keys seguras** - Armazenadas apenas localmente
-
-### Reportar Vulnerabilidades
-
-Encontrou uma vulnerabilidade? Veja [SECURITY.md](SECURITY.md) para instruções.
-
----
-
-## 🤖 CI/CD
-
-Todas as mudanças passam por verificação automática:
-
-### Pipeline de CI
-
-- ✅ **Linting** - golangci-lint (Go) + ESLint (TypeScript)
-- ✅ **Tests** - Suíte completa de testes
-- ✅ **Build** - Verificação de build em Windows e Linux
-
-### Releases Automatizadas
-
-Quando uma tag `v*.*.*` é criada:
-1. Build automático para Windows e Linux
-2. Geração de checksums SHA256
-3. Upload para GitHub Releases
-4. Extração de release notes do CHANGELOG.md
-
-```bash
-# Criar release
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-
-# GitHub Actions cuida do resto!
 ```
 
 ---
