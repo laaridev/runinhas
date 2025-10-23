@@ -1,12 +1,10 @@
 <div align="center">
   <img src="https://i.imgur.com/CFu2M7H.png" alt="Runinhas" width="280"/>
-  
-  # Runinhas
-  
-  ### *"sem tilts, só timing"* ⚡
-  
-  Alertas de voz em tempo real para timings críticos do Dota 2
-  
+
+# Runinhas
+
+Alertas de voz em tempo real para timings críticos do Dota 2
+
 </div>
 
 ---
