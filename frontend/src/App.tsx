@@ -417,10 +417,7 @@ function App() {
 
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${theme.background} transition-all duration-500`}>
-      {/* Version Banner - Free/Pro Mode */}
-      <VersionBanner />
-      
+    <div className={`min-h-screen bg-gradient-to-br ${theme.background} transition-all duration-500 pb-12`}>
       {/* Clean Light Navbar with Theme Colors */}
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-lg border-b border-gray-200/60 shadow-sm transition-all duration-500">
         <div className="max-w-7xl mx-auto px-8 py-4">
@@ -661,6 +658,9 @@ function App() {
           toast.success('Tutorial concluído! Aproveite o runinhas!');
         }}
       />
+
+      {/* Version Footer - Fixed at bottom */}
+      <VersionBanner />
     </div>
   );
 }
