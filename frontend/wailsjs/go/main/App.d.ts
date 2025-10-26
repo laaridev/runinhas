@@ -25,7 +25,7 @@ export function ProxyToBackend(arg1:string,arg2:string,arg3:string):Promise<stri
 
 export function SetLanguage(arg1:string):Promise<void>;
 
-export function SetMode(arg1:string):Promise<void>;
+export function SetMode(arg1:string,arg2:string):Promise<void>;
 
 export function StartEmbeddedServer():Promise<void>;
 

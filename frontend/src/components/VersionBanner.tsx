@@ -1,4 +1,4 @@
-import { Sparkles, Lock } from 'lucide-react';
+import { Sparkles, Crown, Check } from 'lucide-react';
 import { useAppMode } from '@/hooks/useAppMode';
 import { UpgradeProButton } from './UpgradeProButton';
 
@@ -14,11 +14,11 @@ export function VersionBanner() {
   return (
     <div
       className={`
-        px-4 py-2.5 text-sm font-medium
+        px-4 py-1.5 text-xs font-medium border-b
         ${
           isFree
-            ? 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border-b border-gray-300'
-            : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-b border-purple-600'
+            ? 'bg-gradient-to-r from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-900/20 dark:via-green-900/20 dark:to-teal-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+            : 'bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white border-purple-600'
         }
       `}
     >
@@ -26,13 +26,20 @@ export function VersionBanner() {
         <div className="flex items-center gap-2">
           {isFree ? (
             <>
-              <Lock className="w-4 h-4" />
-              <span>🔒 Versão Free</span>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-800/30 border border-emerald-200 dark:border-emerald-700">
+                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                  Versão Free
+                </span>
+              </div>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 animate-pulse" />
-              <span>⭐ Modo PRO ativo</span>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm">
+                <Crown className="w-3 h-3 animate-pulse" />
+                <span className="font-semibold">Modo PRO</span>
+                <Sparkles className="w-3 h-3" />
+              </div>
             </>
           )}
         </div>

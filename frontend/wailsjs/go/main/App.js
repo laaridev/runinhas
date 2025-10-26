@@ -50,8 +50,8 @@ export function SetLanguage(arg1) {
   return window['go']['main']['App']['SetLanguage'](arg1);
 }
 
-export function SetMode(arg1) {
-  return window['go']['main']['App']['SetMode'](arg1);
+export function SetMode(arg1, arg2) {
+  return window['go']['main']['App']['SetMode'](arg1, arg2);
 }
 
 export function StartEmbeddedServer() {
