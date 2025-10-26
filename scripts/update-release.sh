@@ -71,18 +71,17 @@ echo "🗑️  Removendo binários antigos..."
 gh release delete-asset v1.0.0 runinhas --yes 2>/dev/null || true
 gh release delete-asset v1.0.0 runinhas.exe --yes 2>/dev/null || true
 
-# Upload novos binários
-echo "📤 Fazendo upload dos binários..."
-
-if [ -f "build/bin/runinhas" ]; then
-    gh release upload v1.0.0 build/bin/runinhas --clobber
-    echo "   ✅ runinhas (Linux)"
-fi
+# Upload apenas Windows (usuários finais)
+echo "📤 Fazendo upload do binário Windows..."
 
 if [ -f "build/bin/runinhas.exe" ]; then
     gh release upload v1.0.0 build/bin/runinhas.exe --clobber
     echo "   ✅ runinhas.exe (Windows)"
+else
+    echo "   ❌ runinhas.exe não encontrado"
 fi
+
+# Nota: Linux é apenas para desenvolvimento, não vai para release
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
