@@ -1,4 +1,4 @@
-import { Sparkles, Crown, Check } from 'lucide-react';
+import { Sparkles, Crown, Lock } from 'lucide-react';
 import { useAppMode } from '@/hooks/useAppMode';
 import { UpgradeProButton } from './UpgradeProButton';
 
@@ -27,7 +27,7 @@ export function VersionBanner() {
           {isFree ? (
             <>
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-800/30 border border-emerald-200 dark:border-emerald-700">
-                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                 <span className="font-semibold text-emerald-700 dark:text-emerald-300">
                   Versão Free
                 </span>
