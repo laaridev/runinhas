@@ -1,0 +1,15 @@
+{
+  "voice": {
+    "title": "Configurações de Voz",
+    "api_key": "API Key (ElevenLabs)",
+    "api_key_placeholder": "Sua chave de API",
+    "voice_id": "Voice ID",
+    "voice_id_placeholder": "ID da voz",
+    "stability": "Estabilidade",
+    "similarity": "Similaridade",
+    "style": "Estilo",
+    "speaker_boost": "Speaker Boost",
+    "save": "Salvar Configurações"
+  },
+  "warning_seconds": "Aviso Antecipado (segundos)"
+}

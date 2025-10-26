@@ -1,0 +1,29 @@
+{
+  "title": "Welcome to Runinhas! 🎮",
+  "subtitle": "Your timing assistant for Dota 2",
+  "description": "To get started, you need to install Dota 2's GSI (Game State Integration).",
+  "what_is_gsi": {
+    "title": "What is GSI?",
+    "description": "Game State Integration allows Runinhas to receive real-time information from your game, such as match time, runes, and important events."
+  },
+  "how_it_works": {
+    "title": "How does it work?",
+    "step1": "Click the button below to install",
+    "step2": "A configuration file is created in your Dota 2 folder",
+    "step3": "Restart Dota 2 if it's currently open",
+    "step4": "Done! Runinhas will be connected"
+  },
+  "is_safe": {
+    "title": "Is it safe?",
+    "description": "Yes! GSI is an official Valve feature. We only read game information, we never modify anything. You can check the configuration file after installation."
+  },
+  "buttons": {
+    "install": "Install GSI",
+    "close": "Close"
+  },
+  "status": {
+    "not_installed": "GSI not installed",
+    "installed": "GSI is already installed!",
+    "installing": "Installing..."
+  }
+}

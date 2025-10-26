@@ -1,0 +1,55 @@
+{
+  "events": {
+    "bounty_rune": {
+      "name": "Runa de Recompensa",
+      "description": "Spawns de ouro para todo o time (0:00, depois a cada 3min)",
+      "message": "Runa de Recompensa em {seconds} segundos"
+    },
+    "power_rune": {
+      "name": "Runa de Poder",
+      "description": "Runas de utilidade ou dano no rio (a cada 2min)",
+      "message": "Runa de Poder em {seconds} segundos"
+    },
+    "wisdom_rune": {
+      "name": "Runa de Sabedoria",
+      "description": "XP bônus para suporte e offlane (7:00, depois a cada 7min)",
+      "message": "Runa de Sabedoria em {seconds} segundos"
+    },
+    "water_rune": {
+      "name": "Runa de Água",
+      "description": "Regeneração instantânea de HP/Mana (2:00 e 4:00)",
+      "message": "Runa de Água em {seconds} segundos"
+    },
+    "stack_timing": {
+      "name": "Stack Timing",
+      "description": "Aviso para stackar camps de neutrals (sempre aos :53)",
+      "message": "Stacks em {seconds} segundos"
+    },
+    "catapult_timing": {
+      "name": "Catapulta",
+      "description": "Spawn de catapultas para pressão em lanes e push",
+      "message": "Catapulta em {seconds} segundos"
+    },
+    "day_night_cycle": {
+      "name": "Ciclo Dia/Noite",
+      "description": "Alertas de mudança dia/noite para timing estratégico",
+      "message": "Atenção: mudança de ciclo em {seconds} segundos"
+    }
+  },
+  "installer": {
+    "error_not_found": "Não foi possível encontrar o Dota 2. Certifique-se de que está instalado via Steam.",
+    "error_create_dir": "Erro ao criar diretório: {error}",
+    "already_installed": "Arquivo GSI já está instalado!",
+    "error_write_file": "Erro ao escrever arquivo: {error}",
+    "success": "GSI instalado com sucesso!"
+  },
+  "messages": {
+    "bounty_rune": "Runa de Recompensa em {seconds} segundos",
+    "power_rune": "Runa de Poder em {seconds} segundos",
+    "wisdom_rune": "Runa de Sabedoria em {seconds} segundos",
+    "water_rune": "Runa de Água em {seconds} segundos",
+    "stack_timing": "Stacks em {seconds} segundos",
+    "catapult_timing": "Catapulta em {seconds} segundos",
+    "day_night_cycle": "Atenção: mudança de ciclo em {seconds} segundos"
+  }
+}

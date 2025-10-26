@@ -1,0 +1,15 @@
+{
+  "voice": {
+    "title": "Voice Settings",
+    "api_key": "API Key (ElevenLabs)",
+    "api_key_placeholder": "Your API key",
+    "voice_id": "Voice ID",
+    "voice_id_placeholder": "Voice ID",
+    "stability": "Stability",
+    "similarity": "Similarity",
+    "style": "Style",
+    "speaker_boost": "Speaker Boost",
+    "save": "Save Settings"
+  },
+  "warning_seconds": "Warning Seconds"
+}

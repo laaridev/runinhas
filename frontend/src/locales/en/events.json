@@ -1,0 +1,30 @@
+{
+  "bounty_rune": {
+    "name": "Bounty Rune",
+    "description": "Gold spawns for the entire team (0:00, then every 3min)"
+  },
+  "power_rune": {
+    "name": "Power Rune",
+    "description": "Utility or damage runes in the river (every 2min)"
+  },
+  "wisdom_rune": {
+    "name": "Wisdom Rune",
+    "description": "Bonus XP for support and offlane (7:00, then every 7min)"
+  },
+  "water_rune": {
+    "name": "Water Rune",
+    "description": "Instant HP/Mana regeneration (2:00 and 4:00)"
+  },
+  "stack_timing": {
+    "name": "Stack Timing",
+    "description": "Alert to stack neutral camps (always at :53)"
+  },
+  "catapult_timing": {
+    "name": "Catapult",
+    "description": "Catapult spawn for lane pressure and push"
+  },
+  "day_night_cycle": {
+    "name": "Day/Night Cycle",
+    "description": "Day/night transition alerts for strategic timing"
+  }
+}

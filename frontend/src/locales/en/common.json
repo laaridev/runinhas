@@ -1,0 +1,49 @@
+{
+  "app_title": "runinhas",
+  "version": {
+    "free_mode": "Free Version — using integrated default voices",
+    "pro_mode": "Pro Version — dynamic voices enabled (ElevenLabs)",
+    "upgrade_message": "🎤 Voice customization and dynamic generation are only available in PRO version"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "waiting": "Waiting for match",
+    "generating": "Generating audio with AI..."
+  },
+  "buttons": {
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "install_gsi": "Install GSI",
+    "switch_theme": "Switch theme",
+    "test_audio": "Test Audio",
+    "generate_audio": "Generate Audio",
+    "edit": "Edit"
+  },
+  "tabs": {
+    "runes": "Runes",
+    "timing": "Timing",
+    "voice": "Voice",
+    "config": "Config"
+  },
+  "themes": {
+    "blue": "Blue",
+    "pink": "Pink"
+  },
+  "toast": {
+    "config_saved": "Settings saved successfully!",
+    "config_error": "Error saving settings",
+    "gsi_success": "GSI installed successfully! Restart Dota 2.",
+    "gsi_error": "Error installing GSI"
+  },
+  "edit_message": {
+    "title": "Edit Message",
+    "description": "Customize the voice message. Use {seconds} to include the time.",
+    "label": "Custom Message",
+    "hint": "Tip:",
+    "example": "\"Rune in {seconds} seconds, get ready!\" or \"{seconds} seconds remaining!\"",
+    "restore": "Restore Default",
+    "cancel": "Cancel",
+    "save": "Save & Generate"
+  }
+}

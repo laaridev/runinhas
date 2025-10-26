@@ -1,0 +1,27 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "runinhas",
+  "outputfilename": "runinhas",
+  "devtools": true,
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "cristal",
+    "email": "niqcelo@gmail.com"
+  },
+  "info": {
+    "companyName": "Runinhas",
+    "productName": "Runinhas - Dota 2 Assistant",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2025",
+    "comments": "Sem tilts, só timing - Dota 2 GSI Assistant"
+  },
+  "window": {
+    "frameless": true,
+    "resizable": false,
+    "width": 750,
+    "height": 650
+  }
+}

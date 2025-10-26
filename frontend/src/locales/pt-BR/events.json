@@ -1,0 +1,30 @@
+{
+  "bounty_rune": {
+    "name": "Runa de Recompensa",
+    "description": "Spawns de ouro para todo o time (0:00, depois a cada 3min)"
+  },
+  "power_rune": {
+    "name": "Runa de Poder",
+    "description": "Runas de utilidade ou dano no rio (a cada 2min)"
+  },
+  "wisdom_rune": {
+    "name": "Runa de Sabedoria",
+    "description": "XP bônus para suporte e offlane (7:00, depois a cada 7min)"
+  },
+  "water_rune": {
+    "name": "Runa de Água",
+    "description": "Regeneração instantânea de HP/Mana (2:00 e 4:00)"
+  },
+  "stack_timing": {
+    "name": "Stack Timing",
+    "description": "Aviso para stackar camps de neutrals (sempre aos :53)"
+  },
+  "catapult_timing": {
+    "name": "Catapulta",
+    "description": "Spawn de catapultas para pressão em lanes e push"
+  },
+  "day_night_cycle": {
+    "name": "Ciclo Dia/Noite",
+    "description": "Alertas de mudança dia/noite para timing estratégico"
+  }
+}

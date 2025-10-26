@@ -1,0 +1,41 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build outputs
+build/
+bin/
+dist/
+
+# Environment files
+.env
+*.env
+!.env.example
+
+# Voice cache
+voice-cache/
+**/voice-cache/
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Debug captures (keep structure but ignore content)
+debug/gsi_ticks/*.json
+debug/captures/*.json

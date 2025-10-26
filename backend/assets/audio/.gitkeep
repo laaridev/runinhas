@@ -1,0 +1,18 @@
+# Placeholder - Generate audio files and place them here
+
+To generate the default audio files for free version:
+
+1. Use ElevenLabs, Google TTS, or any TTS service
+2. Generate these files:
+   - bounty_rune_warning.mp3 - "Runa de Recompensa em alguns segundos"
+   - power_rune_warning.mp3 - "Runa de Poder em alguns segundos"
+   - wisdom_rune_warning.mp3 - "Runa de Sabedoria em alguns segundos"
+   - water_rune_warning.mp3 - "Runa de Água em alguns segundos"
+   - stack_timing_warning.mp3 - "Hora de stackar em alguns segundos"
+   - catapult_timing_warning.mp3 - "Catapulta chegando em alguns segundos"
+   - day_night_cycle_warning.mp3 - "Mudança de ciclo em alguns segundos"
+
+3. Place the .mp3 files in this directory
+4. Rebuild the app to embed them
+
+For now, the app will use ElevenLabs API even in free mode if no embedded files exist.
