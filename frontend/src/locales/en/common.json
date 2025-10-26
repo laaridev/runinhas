@@ -9,7 +9,8 @@
     "online": "Online",
     "offline": "Offline",
     "waiting": "Waiting for match",
-    "generating": "Generating audio with AI..."
+    "generating": "Generating audio with AI...",
+    "playing": "Playing..."
   },
   "buttons": {
     "connect": "Connect",

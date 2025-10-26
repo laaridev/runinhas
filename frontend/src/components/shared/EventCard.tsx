@@ -629,7 +629,7 @@ export function EventCard({
                     {isPlaying ? (
                       <>
                         <Activity className="w-3.5 h-3.5 mr-1.5 animate-pulse text-purple-600" />
-                        <span className="text-purple-700">{t('common:status.online')}</span>
+                        <span className="text-purple-700">{t('common:status.playing')}</span>
                       </>
                     ) : (
                       <>
