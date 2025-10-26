@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"dota-gsi/backend/assets"
 	"dota-gsi/backend/config"
+	"dota-gsi/backend/voice"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -48,6 +49,8 @@ type VoiceHandler struct {
 	similarity   float64
 	style        float64
 	speakerBoost bool
+	// API Key provider for remote key fetching
+	apiKeyProvider *voice.APIKeyProvider
 }
 
 // UpdateSettings updates the voice handler settings dynamically
@@ -98,6 +101,20 @@ func NewVoiceHandler(mode, apiKey, voiceID, cachePath string, logger *logrus.Ent
 	if err := os.MkdirAll(finalCachePath, 0755); err != nil {
 	}
 
+	// Initialize API Key Provider (for remote key fetching)
+	apiKeyProvider := voice.NewAPIKeyProvider(cachePath, logger.Logger)
+	
+	// In PRO mode, try to get API key from remote if not provided locally
+	if mode == "pro" && apiKey == "" {
+		remoteKey, err := apiKeyProvider.GetAPIKey()
+		if err != nil {
+			logger.WithError(err).Warn("⚠️ Failed to fetch remote API key, will retry on demand")
+		} else {
+			apiKey = remoteKey
+			logger.Info("✅ Using remote API key from GitHub")
+		}
+	}
+
 	// In free mode, voice is always enabled (using embedded audio)
 	// In pro mode, enabled only if API key is set
 	enabled := mode == "free" || apiKey != ""
@@ -111,11 +128,12 @@ func NewVoiceHandler(mode, apiKey, voiceID, cachePath string, logger *logrus.Ent
 		gameConfig:     nil, // Will be set later by SetGameConfig
 		enabled:        enabled,
 		audioEventChan: make(chan AudioEvent, 10), // Buffer up to 10 audio events
-			// Default voice settings (will be overridden by config)
-		stability:    config.DefaultStability,
-		similarity:   config.DefaultSimilarity,
-		style:        config.DefaultStyle,
-		speakerBoost: config.DefaultSpeakerBoost,
+		// Default voice settings (will be overridden by config)
+		stability:      config.DefaultStability,
+		similarity:     config.DefaultSimilarity,
+		style:          config.DefaultStyle,
+		speakerBoost:   config.DefaultSpeakerBoost,
+		apiKeyProvider: apiKeyProvider,
 	}
 
 	// Log configuration status
@@ -240,8 +258,20 @@ func (vh *VoiceHandler) speak(text string) {
 
 // GenerateVoice calls ElevenLabs API (exported for API usage)
 func (vh *VoiceHandler) GenerateVoice(text string) ([]byte, error) {
+	// Get API key (try remote if not set locally)
+	apiKey := vh.apiKey
+	if apiKey == "" && vh.apiKeyProvider != nil {
+		remoteKey, err := vh.apiKeyProvider.GetAPIKey()
+		if err != nil {
+			vh.logger.WithError(err).Error("❌ Failed to fetch remote API key")
+			return nil, fmt.Errorf("ElevenLabs API key not configured and remote fetch failed: %w", err)
+		}
+		apiKey = remoteKey
+		vh.logger.Info("✅ Using remote API key for voice generation")
+	}
+	
 	// Check if API key and voice ID are configured
-	if vh.apiKey == "" {
+	if apiKey == "" {
 		return nil, fmt.Errorf("ElevenLabs API key not configured")
 	}
 	if vh.voiceID == "" {
@@ -280,7 +310,7 @@ func (vh *VoiceHandler) GenerateVoice(text string) ([]byte, error) {
 
 	req.Header.Set("Accept", "audio/mpeg")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("xi-api-key", vh.apiKey)
+	req.Header.Set("xi-api-key", apiKey)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)

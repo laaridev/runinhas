@@ -114,7 +114,7 @@ function App() {
       description: t('events:stack_timing.description'),
       icon: <Package className={`w-6 h-6 ${theme.iconMain} transition-colors duration-500`} />,
       min: 5,
-      max: 15,
+      max: 60,
       step: 1,
     },
     {

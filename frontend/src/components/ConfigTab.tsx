@@ -19,7 +19,8 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Info
+  Info,
+  Lock
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
@@ -39,9 +40,6 @@ interface ConfigTabProps {
 export function ConfigTab({ theme }: ConfigTabProps) {
   const toast = useToast();
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [discordEnabled, setDiscordEnabled] = useState(false);
-  const [notifyEnabled, setNotifyEnabled] = useState(true);
-  const [overlayEnabled, setOverlayEnabled] = useState(false);
   
   // Mock histórico de eventos
   const [eventHistory] = useState<EventHistoryItem[]>([
@@ -74,7 +72,7 @@ export function ConfigTab({ theme }: ConfigTabProps) {
   const handleExportConfig = () => {
     // Implementar export real
     const config = {
-      handlers: { voiceEnabled, discordEnabled, notifyEnabled, overlayEnabled },
+      handlers: { voiceEnabled },
       // ... outras configs
     };
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
@@ -183,46 +181,55 @@ export function ConfigTab({ theme }: ConfigTabProps) {
                 <Switch checked={voiceEnabled} onCheckedChange={setVoiceEnabled} />
               </div>
 
-              {/* Discord Handler */}
-              <div className="flex items-center justify-between p-3 rounded-lg border">
+              {/* Discord Handler - PRO ONLY */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50 opacity-60">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-2 ${theme.iconBg} rounded-lg`}>
-                    <MessageSquare className={`w-5 h-5 ${theme.iconMain}`} />
+                  <div className="p-2 bg-gray-200 rounded-lg">
+                    <MessageSquare className="w-5 h-5 text-gray-400" />
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Discord Webhook</Label>
-                    <p className="text-xs text-gray-500">Enviar avisos para servidor Discord</p>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium text-gray-600">Discord Webhook</Label>
+                      <Lock className="w-3 h-3 text-purple-500" />
+                    </div>
+                    <p className="text-xs text-gray-400">Disponível apenas na versão PRO</p>
                   </div>
                 </div>
-                <Switch checked={discordEnabled} onCheckedChange={setDiscordEnabled} />
+                <Switch disabled checked={false} />
               </div>
 
-              {/* System Notification */}
-              <div className="flex items-center justify-between p-3 rounded-lg border">
+              {/* System Notification - PRO ONLY */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50 opacity-60">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-2 ${theme.iconBg} rounded-lg`}>
-                    <Bell className={`w-5 h-5 ${theme.iconMain}`} />
+                  <div className="p-2 bg-gray-200 rounded-lg">
+                    <Bell className="w-5 h-5 text-gray-400" />
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Notificações do Sistema</Label>
-                    <p className="text-xs text-gray-500">Toast notifications no desktop</p>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium text-gray-600">Notificações do Sistema</Label>
+                      <Lock className="w-3 h-3 text-purple-500" />
+                    </div>
+                    <p className="text-xs text-gray-400">Disponível apenas na versão PRO</p>
                   </div>
                 </div>
-                <Switch checked={notifyEnabled} onCheckedChange={setNotifyEnabled} />
+                <Switch disabled checked={false} />
               </div>
 
-              {/* Overlay */}
-              <div className="flex items-center justify-between p-3 rounded-lg border">
+              {/* Overlay - PRO ONLY */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50 opacity-60">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-2 ${theme.iconBg} rounded-lg`}>
-                    <Globe className={`w-5 h-5 ${theme.iconMain}`} />
+                  <div className="p-2 bg-gray-200 rounded-lg">
+                    <Globe className="w-5 h-5 text-gray-400" />
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Overlay (OBS/Browser)</Label>
-                    <p className="text-xs text-gray-500">Stream de eventos via SSE</p>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium text-gray-600">Overlay (OBS/Browser)</Label>
+                      <Lock className="w-3 h-3 text-purple-500" />
+                    </div>
+                    <p className="text-xs text-gray-400">Disponível apenas na versão PRO</p>
                   </div>
                 </div>
-                <Switch checked={overlayEnabled} onCheckedChange={setOverlayEnabled} />
+                <Switch disabled checked={false} />
               </div>
             </CardContent>
           </Card>
