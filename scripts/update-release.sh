@@ -19,14 +19,14 @@ else
     exit 1
 fi
 
-# Build Windows
+# Build Windows (sem -clean para manter o Linux)
 echo ""
 echo "📦 Building Windows binary..."
 
 if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
-    # MinGW disponível - build Windows
+    # MinGW disponível - build Windows (SEM -clean)
     CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 \
-        wails build -clean -platform windows/amd64
+        wails build -platform windows/amd64
     
     if [ -f "build/bin/runinhas.exe" ]; then
         WIN_SIZE=$(du -h build/bin/runinhas.exe | cut -f1)
