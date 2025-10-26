@@ -22,17 +22,26 @@ fi
 # Build Windows
 echo ""
 echo "📦 Building Windows binary..."
+
 if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
-    wails build -clean -platform windows/amd64
+    # MinGW disponível - build Windows
+    CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 \
+        wails build -clean -platform windows/amd64
+    
     if [ -f "build/bin/runinhas.exe" ]; then
         WIN_SIZE=$(du -h build/bin/runinhas.exe | cut -f1)
         echo "✅ Windows build OK ($WIN_SIZE)"
     else
-        echo "⚠️  Windows build failed"
+        echo "❌ Windows build failed"
     fi
 else
-    echo "⚠️  MinGW not installed, skipping Windows build"
-    echo "   Install with: sudo pacman -S mingw-w64-gcc"
+    echo "❌ MinGW não instalado, pulando build Windows"
+    echo ""
+    echo "   Para compilar Windows no Linux, instale:"
+    echo "   sudo pacman -S mingw-w64-gcc"
+    echo ""
+    echo "   Ou compile diretamente no Windows:"
+    echo "   wails build"
 fi
 
 echo ""
