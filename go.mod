@@ -4,7 +4,6 @@ go 1.24.0
 
 require (
 	dota-gsi/backend v0.0.0-00010101000000-000000000000
-	github.com/sirupsen/logrus v1.9.3
 	github.com/wailsapp/wails/v2 v2.10.2
 )
 
@@ -28,6 +27,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.49.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect

@@ -28,14 +28,15 @@ type TimingEvent struct {
 
 // GameConfig holds the game configuration
 type GameConfig struct {
-	Mode     string                            `json:"mode"`     // "free" or "pro"
-	Language string                            `json:"language"` // "pt-BR" or "en"
-	Timings  map[string]map[string]interface{} `json:"timings"`
-	Audio    AudioConfig                       `json:"audio"`
-	Messages map[string]string                 `json:"messages"`
-	System   *SystemConfig                     `json:"system,omitempty"`
-	Voice    map[string]interface{}            `json:"voice,omitempty"`
-	Events   map[string]TimingEvent            `json:"events,omitempty"` // Complete event metadata
+	Mode       string                            `json:"mode"`        // "free" or "pro"
+	LicenseKey string                            `json:"license_key"` // PRO license key
+	Language   string                            `json:"language"`    // "pt-BR" or "en"
+	Timings    map[string]map[string]interface{} `json:"timings"`
+	Audio      AudioConfig                       `json:"audio"`
+	Messages   map[string]string                 `json:"messages"`
+	System     *SystemConfig                     `json:"system,omitempty"`
+	Voice      map[string]interface{}            `json:"voice,omitempty"`
+	Events     map[string]TimingEvent            `json:"events,omitempty"` // Complete event metadata
 }
 
 // SystemConfig holds system configuration

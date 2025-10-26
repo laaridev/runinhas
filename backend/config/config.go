@@ -28,6 +28,9 @@ type Config struct {
 
 	// App mode: "free" or "pro"
 	Mode string
+	
+	// License key for PRO version
+	LicenseKey string
 
 	// Voice configuration (Pro only)
 	ElevenLabsAPIKey  string

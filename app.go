@@ -5,6 +5,7 @@ import (
 	"dota-gsi/backend/installer"
 	"dota-gsi/backend/server"
 	"dota-gsi/backend/utils"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -135,11 +136,43 @@ func (a *App) GetMode() (string, error) {
 	return resp, err
 }
 
-// SetMode sets the app mode (free or pro) - requires restart
-func (a *App) SetMode(mode string) error {
-	// This would update config and require restart
-	// For now, users need to manually edit config
-	return fmt.Errorf("mode change requires manual config edit and app restart")
+// SetMode sets the app mode (free or pro) with optional license key
+func (a *App) SetMode(mode string, licenseKey string) error {
+	// Prepare request body
+	requestBody := map[string]string{
+		"mode":        mode,
+		"license_key": licenseKey,
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Call backend endpoint
+	resp, err := a.ProxyToBackend("POST", "/api/mode", string(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to update mode: %w", err)
+	}
+
+	// Parse response
+	var response map[string]interface{}
+	if err := json.Unmarshal([]byte(resp), &response); err != nil {
+		return fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Check if successful
+	if success, ok := response["success"].(bool); !ok || !success {
+		if errMsg, ok := response["error"].(string); ok {
+			return fmt.Errorf("mode update failed: %s", errMsg)
+		}
+		return fmt.Errorf("mode update failed")
+	}
+
+	// Emit event to frontend
+	wailsruntime.EventsEmit(a.ctx, "mode:changed", mode)
+
+	return nil
 }
 
 // ProxyToBackend proxies requests from frontend to backend

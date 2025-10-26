@@ -1,9 +1,8 @@
-import { useTranslation } from 'react-i18next';
 import { Sparkles, Lock } from 'lucide-react';
 import { useAppMode } from '@/hooks/useAppMode';
+import { UpgradeProButton } from './UpgradeProButton';
 
 export function VersionBanner() {
-  const { t } = useTranslation('common');
   const { appMode, loading } = useAppMode();
 
   if (loading) {
@@ -15,7 +14,7 @@ export function VersionBanner() {
   return (
     <div
       className={`
-        px-4 py-2.5 text-center text-sm font-medium
+        px-4 py-2.5 text-sm font-medium
         ${
           isFree
             ? 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border-b border-gray-300'
@@ -23,17 +22,23 @@ export function VersionBanner() {
         }
       `}
     >
-      <div className="flex items-center justify-center gap-2">
-        {isFree ? (
-          <>
-            <Lock className="w-4 h-4" />
-            <span>{t('version.free_mode')}</span>
-          </>
-        ) : (
-          <>
-            <Sparkles className="w-4 h-4" />
-            <span>{t('version.pro_mode')}</span>
-          </>
+      <div className="flex items-center justify-between max-w-7xl mx-auto">
+        <div className="flex items-center gap-2">
+          {isFree ? (
+            <>
+              <Lock className="w-4 h-4" />
+              <span>🔒 Versão Free</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 animate-pulse" />
+              <span>⭐ Modo PRO ativo</span>
+            </>
+          )}
+        </div>
+        
+        {isFree && (
+          <UpgradeProButton />
         )}
       </div>
     </div>

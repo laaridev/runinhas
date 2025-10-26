@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { GetMode } from '../../wailsjs/go/main/App';
+import { EventsOn } from '../../wailsjs/runtime/runtime';
 
 export interface AppMode {
   mode: 'free' | 'pro';
@@ -32,6 +33,12 @@ export function useAppMode() {
 
   useEffect(() => {
     loadAppMode();
+    
+    // Listen for mode changes from backend
+    EventsOn("mode:changed", (newMode: string) => {
+      console.log(`🔄 Mode changed to: ${newMode}`);
+      loadAppMode();
+    });
   }, []);
 
   const loadAppMode = async () => {
