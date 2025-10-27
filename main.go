@@ -23,11 +23,11 @@ func main() {
 	err := wails.Run(&options.App{
 		Title:     "runinhas",
 		Width:     850,
-		Height:    620,
+		Height:    670,
 		MinWidth:  850,
-		MinHeight: 620,
+		MinHeight: 670,
 		MaxWidth:  850,
-		MaxHeight: 620,
+		MaxHeight: 670,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
