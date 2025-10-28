@@ -47,8 +47,10 @@ type SystemConfig struct {
 
 // AudioConfig holds audio configuration
 type AudioConfig struct {
-	CachePath  string  `json:"cache_path"`
-	VoiceSpeed float64 `json:"voice_speed"`
+	CachePath         string  `json:"cache_path"`
+	VoiceSpeed        float64 `json:"voice_speed"`
+	VirtualMicEnabled bool    `json:"virtual_mic_enabled"`
+	VirtualMicDevice  string  `json:"virtual_mic_device"`
 }
 
 // LoadGameConfig loads game configuration from config.json

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventCard } from "@/components/shared/EventCard";
 import { ConfigTab } from "@/components/ConfigTab";
 import ElevenLabsSettings from "@/components/ElevenLabsSettings";
+import { VirtualMicSettings } from "@/components/VirtualMicSettings";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 import { ToastContainer } from "@/components/ToastContainer";
@@ -616,8 +617,12 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: ANIMATION.TAB_TRANSITION / 1000, ease: "easeInOut" }}
+              className="space-y-6"
             >
               <ElevenLabsSettings />
+              
+              {/* Virtual Mic Settings */}
+              <VirtualMicSettings theme={theme} />
             </motion.div>
           </TabsContent>
           

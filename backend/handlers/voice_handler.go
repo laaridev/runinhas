@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"dota-gsi/backend/assets"
+	"dota-gsi/backend/audio"
 	"dota-gsi/backend/config"
 	"dota-gsi/backend/voice"
 	"encoding/hex"
@@ -44,6 +45,8 @@ type VoiceHandler struct {
 	queueMutex     sync.Mutex // Mutex for queue operations
 	// Direct emitter for Wails events
 	directEmitter func(eventName string, data interface{})
+	// Audio player for dual output (speakers + virtual mic)
+	audioPlayer *audio.Player
 	// Voice settings (can be updated dynamically)
 	stability    float64
 	similarity   float64
@@ -155,6 +158,12 @@ func (vh *VoiceHandler) SetGameConfig(gameConfig interface{}) {
 func (vh *VoiceHandler) SetDirectEmitter(emitter func(eventName string, data interface{})) {
 	vh.directEmitter = emitter
 	vh.logger.Info("✅ Direct emitter configured for voice handler")
+}
+
+// SetAudioPlayer sets the audio player for dual output (speakers + virtual mic)
+func (vh *VoiceHandler) SetAudioPlayer(player *audio.Player) {
+	vh.audioPlayer = player
+	vh.logger.Info("✅ Audio player configured for voice handler")
 }
 
 // Handle processes voice events
@@ -340,6 +349,11 @@ func (vh *VoiceHandler) emitAudioEvent(filename, eventType string, data interfac
 		dataMap = m
 	}
 
+	// Play audio using audio player (speakers + virtual mic if enabled)
+	if vh.audioPlayer != nil {
+		go vh.playAudioWithPlayer(filename, eventType)
+	}
+
 	// In free mode, prepend "embedded:" to filename so frontend knows to fetch from embedded endpoint
 	if vh.mode == "free" {
 		filename = "embedded:" + filename
@@ -361,6 +375,35 @@ func (vh *VoiceHandler) emitAudioEvent(filename, eventType string, data interfac
 		}).Debug("✅ Audio event emitted via Wails")
 	} else {
 		vh.logger.Warn("⚠️ No direct emitter configured, audio event not sent")
+	}
+}
+
+// playAudioWithPlayer plays audio using the audio player (dual output)
+func (vh *VoiceHandler) playAudioWithPlayer(filename, eventType string) {
+	var audioData []byte
+	var err error
+
+	// Get audio data based on mode
+	if vh.mode == "free" {
+		// Read from embedded assets
+		audioData, err = assets.GetAudioFile(filename)
+		if err != nil {
+			vh.logger.WithError(err).WithField("filename", filename).Warn("Failed to read embedded audio")
+			return
+		}
+	} else {
+		// Read from cache file (PRO mode)
+		cacheFile := filepath.Join(vh.cachePath, filename)
+		audioData, err = os.ReadFile(cacheFile)
+		if err != nil {
+			vh.logger.WithError(err).WithField("filename", filename).Warn("Failed to read cached audio")
+			return
+		}
+	}
+
+	// Play audio (speakers + virtual mic if enabled)
+	if err := vh.audioPlayer.Play(audioData, filename); err != nil {
+		vh.logger.WithError(err).WithField("filename", filename).Warn("Failed to play audio")
 	}
 }
 

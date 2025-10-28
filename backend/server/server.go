@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"dota-gsi/backend/audio"
 	"dota-gsi/backend/config"
 	"dota-gsi/backend/consumers"
 	"dota-gsi/backend/events"
@@ -25,6 +26,7 @@ type GSIServer struct {
 	port            int
 	server          *http.Server
 	voiceHandler    interface{} // Will be set if voice is enabled
+	audioPlayer     *audio.Player
 	consumerManager *consumers.ConsumerManager
 	startTime       time.Time
 }
@@ -57,8 +59,29 @@ func New() (*GSIServer, error) {
 	server := NewGSIServer(3001, logEntry, eventBus)
 	server.startTime = time.Now()
 
+	// Initialize audio player
+	server.audioPlayer = audio.NewPlayer(logger)
+	
 	// Load configuration to get voice settings
 	cfg, err := config.Load()
+	
+	// Configure audio player with saved settings
+	if err == nil && cfg.Game != nil {
+		if cfg.Game.Audio.VirtualMicEnabled {
+			server.audioPlayer.SetVirtualMicEnabled(true)
+		}
+		if cfg.Game.Audio.VirtualMicDevice != "" {
+			server.audioPlayer.SetVirtualMicDevice(cfg.Game.Audio.VirtualMicDevice)
+		} else {
+			// Auto-detect virtual mic
+			if device, found := server.audioPlayer.DetectVirtualMic(); found {
+				server.audioPlayer.SetVirtualMicDevice(device)
+				cfg.Game.Audio.VirtualMicDevice = device
+				configPath, _ := config.GetConfigPath()
+				config.SaveGameConfig(configPath, cfg.Game)
+			}
+		}
+	}
 	
 	// Initialize i18n system with language from config
 	if err == nil {
@@ -85,6 +108,8 @@ func New() (*GSIServer, error) {
 		if err == nil {
 			// Set game config for voice handler
 			voiceHandler.SetGameConfig(cfg.Game)
+			// Set audio player for dual output (speakers + virtual mic)
+			voiceHandler.SetAudioPlayer(server.audioPlayer)
 			// Set voice handler in the server
 			server.SetVoiceHandler(voiceHandler)
 			
@@ -164,6 +189,10 @@ func (s *GSIServer) Start(addr string) error {
 
 	// Add audio endpoints
 	s.AddAudioEndpoints(router)
+	
+	// Add virtual mic endpoints
+	s.AddVirtualMicEndpoints(router)
+	
 	router.Use(s.corsMiddleware)
 
 	// Create HTTP server
